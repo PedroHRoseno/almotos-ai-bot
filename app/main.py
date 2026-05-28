@@ -1,0 +1,47 @@
+import logging
+from contextlib import asynccontextmanager
+
+from dotenv import load_dotenv
+from fastapi import FastAPI
+
+from app.config import get_settings
+from app.routes import create_api_router
+
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    if not settings.openai_api_key:
+        logging.getLogger(__name__).warning("OPENAI_API_KEY não configurada")
+    if not settings.whatsapp_access_token:
+        logging.getLogger(__name__).warning("WHATSAPP_ACCESS_TOKEN não configurada")
+    yield
+
+
+app = FastAPI(
+    title="AlMotos AI Bot",
+    description="Chatbot WhatsApp integrado à OpenAI e à API de veículos AlMotos",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+app.include_router(create_api_router())
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    settings = get_settings()
+    uvicorn.run(
+        "app.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=settings.debug,
+    )
