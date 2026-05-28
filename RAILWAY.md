@@ -1,5 +1,8 @@
 # Deploy no Railway — AlMotos AI Bot
 
+> **Não use Vercel** para este serviço. O bot é Python + uvicorn (processo contínuo).
+> A Vercel é para o **almotos-front** (Next.js). O **almotos-ai-bot** deve rodar no **Railway**.
+
 ## 1. Criar o serviço
 
 1. [Railway](https://railway.app) → **New Project** → **Deploy from GitHub repo**
@@ -63,5 +66,6 @@ railway logs
 |----------|---------|
 | Build falha | Confirme **Root Directory** = `almotos-ai-bot` |
 | 502 / app não sobe | Veja logs; confira se `PORT` está sendo usado (já configurado no Dockerfile) |
+| `Invalid value for '--port': '$PORT'` | Remova **Start Command** customizado no Railway; deixe só o `Dockerfile` CMD. Não use `$PORT` literal sem `sh -c` |
 | Webhook não verifica | `WHATSAPP_VERIFY_TOKEN` deve ser idêntico ao da Meta |
 | Bot não lista motos | Configure `VEHICLES_API_TOKEN` com JWT válido do admin |
