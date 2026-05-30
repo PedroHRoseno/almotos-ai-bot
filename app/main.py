@@ -22,6 +22,14 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning("OPENAI_API_KEY não configurada")
     if not settings.whatsapp_access_token:
         logging.getLogger(__name__).warning("WHATSAPP_ACCESS_TOKEN não configurada")
+    if not settings.whatsapp_verify_token:
+        logging.getLogger(__name__).warning(
+            "WHATSAPP_VERIFY_TOKEN não configurada — verificação do webhook Meta vai falhar"
+        )
+    elif settings.whatsapp_verify_token.strip() != settings.whatsapp_verify_token:
+        logging.getLogger(__name__).warning(
+            "WHATSAPP_VERIFY_TOKEN tem espaços no início/fim — remova no Railway"
+        )
     yield
 
 

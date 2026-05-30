@@ -13,9 +13,16 @@ class WhatsAppService:
         self._settings = settings
 
     def verify_webhook(self, mode: str, token: str, challenge: str) -> str | None:
-        if mode == "subscribe" and token == self._settings.whatsapp_verify_token:
+        expected = (self._settings.whatsapp_verify_token or "").strip()
+        received = (token or "").strip()
+        if mode == "subscribe" and received and received == expected and challenge:
             return challenge
-        logger.warning("Falha na verificação do webhook WhatsApp (token ou mode inválido)")
+        logger.warning(
+            "Falha na verificação do webhook WhatsApp (mode=%r token_match=%s challenge=%s)",
+            mode,
+            received == expected if received and expected else False,
+            bool(challenge),
+        )
         return None
 
     def parse_incoming_messages(self, payload: WebhookPayload) -> list[IncomingMessage]:
