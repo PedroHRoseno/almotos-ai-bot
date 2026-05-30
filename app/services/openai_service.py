@@ -62,16 +62,13 @@ class OpenAIService:
 
     async def generate_reply(
         self,
-        user_message: str,
         inventory_text: str,
-        conversation_history: list[dict[str, str]] | None = None,
+        conversation_messages: list[dict[str, str]],
     ) -> str:
         messages: list[dict[str, str]] = [
             {"role": "system", "content": self.build_system_prompt(inventory_text)},
+            *conversation_messages,
         ]
-        if conversation_history:
-            messages.extend(conversation_history)
-        messages.append({"role": "user", "content": user_message})
 
         response = await self._client.chat.completions.create(
             model=self._settings.openai_model,
