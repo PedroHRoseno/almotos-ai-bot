@@ -124,18 +124,10 @@ class VehiclesApiService:
                 "Informe ao cliente que a equipe pode ajudar em breve ou que ele pode ligar na loja."
             )
 
-        lines = ["ESTOQUE ATUAL DE MOTOS DISPONÍVEIS:", ""]
+        lines = ["ESTOQUE ATUAL DE MOTOS DISPONÍVEIS (Modelo | Ano | Cor):", ""]
         for i, v in enumerate(vehicles, start=1):
-            km = (
-                f"{v.kilometers_driven:,} km".replace(",", ".")
-                if v.kilometers_driven is not None
-                else "km não informado"
-            )
-            desc = f" — {v.description}" if v.description else ""
-            plate = f" (placa {v.license_plate})" if v.license_plate else ""
+            model = f"{v.display_brand()} {v.display_model()}".strip()
             lines.append(
-                f"{i}. {v.display_brand()} {v.display_model()} — "
-                f"Ano {v.display_year()} — Cor {v.color or 'não informada'} — "
-                f"{km}{plate}{desc}"
+                f"{i}. Modelo: {model} — Ano: {v.display_year()} — Cor: {v.color or 'não informada'}"
             )
         return "\n".join(lines)

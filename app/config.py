@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     vehicles_api_token: str = ""
     vehicles_api_page_size: int = 50
 
+    seller_1_phone: str = ""
+    seller_2_phone: str = ""
+
     @property
     def whatsapp_graph_url(self) -> str:
         return (

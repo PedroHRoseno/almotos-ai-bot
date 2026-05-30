@@ -12,5 +12,8 @@
 
   "VEHICLES_API_URL": "https://api.almotoscaruaru.com.br/api/public/vehicles",
   "VEHICLES_API_TOKEN": "",
-  "VEHICLES_API_PAGE_SIZE": "50"
+  "VEHICLES_API_PAGE_SIZE": "50",
+
+  "SELLER_1_PHONE": "5581999999999",
+  "SELLER_2_PHONE": "5581888888888"
 }
