@@ -13,8 +13,12 @@ logger = logging.getLogger(__name__)
 
 _MAX_MESSAGES = 20
 _MEMORY_TTL = timedelta(hours=24)
-_MAX_PHOTOS_PER_REPLY = 3
-_PHOTO_TAG_PATTERN = re.compile(r"\[ENVIAR_FOTO:([^\]]+)\]", re.IGNORECASE)
+_MAX_IMAGES_PER_REPLY = 3
+_IMAGE_TAG_PATTERN = re.compile(
+    r"\[IMAGEM:\s*(https?://[^\]]+)\]",
+    re.IGNORECASE,
+)
+_MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[[^\]]*\]\([^)]+\)")
 _FALLBACK_REPLY = (
     "Desculpe, tivemos um problema técnico. "
     "Tente novamente em alguns minutos ou entre em contato com nossa loja."
@@ -29,11 +33,12 @@ class ConversationMemoryEntry(TypedDict):
 conversation_memory: dict[str, ConversationMemoryEntry] = {}
 
 
-def extract_photo_tags(text: str) -> tuple[str, list[str]]:
-    urls = [match.strip() for match in _PHOTO_TAG_PATTERN.findall(text) if match.strip()]
-    clean_text = _PHOTO_TAG_PATTERN.sub("", text)
+def extract_image_tags(text: str) -> tuple[str, list[str]]:
+    urls = [match.strip() for match in _IMAGE_TAG_PATTERN.findall(text) if match.strip()]
+    clean_text = _IMAGE_TAG_PATTERN.sub("", text)
+    clean_text = _MARKDOWN_IMAGE_PATTERN.sub("", clean_text)
     clean_text = re.sub(r"\n{3,}", "\n\n", clean_text).strip()
-    return clean_text, urls[:_MAX_PHOTOS_PER_REPLY]
+    return clean_text, urls[:_MAX_IMAGES_PER_REPLY]
 
 
 def _get_or_create_memory(phone_number: str) -> ConversationMemoryEntry:
@@ -95,13 +100,13 @@ class ChatService:
                 conversation_messages=memory["messages"],
             )
 
-            clean_text, photo_urls = extract_photo_tags(reply)
+            clean_text, image_urls = extract_image_tags(reply)
             text_sent = False
             if clean_text:
                 text_sent = await self._whatsapp.send_text_message(phone, clean_text)
 
             photos_sent = 0
-            for image_url in photo_urls:
+            for image_url in image_urls:
                 if await self._whatsapp.send_image_message(phone, image_url):
                     photos_sent += 1
 

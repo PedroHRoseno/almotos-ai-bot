@@ -124,12 +124,20 @@ class VehiclesApiService:
                 "Informe ao cliente que a equipe pode ajudar em breve ou que ele pode ligar na loja."
             )
 
-        lines = ["ESTOQUE ATUAL DE MOTOS DISPONÍVEIS (Modelo | Ano | Cor | Fotos):", ""]
-        for i, v in enumerate(vehicles, start=1):
+        lines = [
+            "ESTOQUE ATUAL (use o formato de listagem com emojis ao responder ao cliente):",
+            "",
+        ]
+        for v in vehicles:
             model = f"{v.display_brand()} {v.display_model()}".strip()
             photos = v.photo_urls(3)
-            photo_info = ", ".join(photos) if photos else "sem fotos"
-            lines.append(
-                f"{i}. Modelo: {model} — Ano: {v.display_year()} — Cor: {v.color or 'não informada'} — Fotos: {photo_info}"
+            photo_info = " | ".join(f"[IMAGEM: {url}]" for url in photos) if photos else "sem fotos"
+            lines.extend(
+                [
+                    f"🏍️ {model}",
+                    f"📅 Ano: {v.display_year()} | 🎨 Cor: {v.color or 'não informada'}",
+                    f"Fotos disponíveis: {photo_info}",
+                    "",
+                ]
             )
-        return "\n".join(lines)
+        return "\n".join(lines).strip()
