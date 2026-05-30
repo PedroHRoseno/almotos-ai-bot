@@ -104,6 +104,47 @@ class WhatsAppService:
                 return False
         return True
 
+    async def send_image_message(self, to: str, image_url: str) -> bool:
+        if not self._settings.whatsapp_access_token or not self._settings.whatsapp_phone_number_id:
+            logger.error("WhatsApp não configurado (token ou phone_number_id ausente)")
+            return False
+
+        link = (image_url or "").strip()
+        if not link:
+            logger.warning("URL de imagem vazia — envio ignorado")
+            return False
+
+        recipient = normalize_brazil_whatsapp_number(to)
+
+        headers = {
+            "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient,
+            "type": "image",
+            "image": {"link": link},
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                self._settings.whatsapp_graph_url,
+                headers=headers,
+                json=body,
+            )
+            if response.status_code >= 400:
+                logger.error(
+                    "Erro ao enviar imagem WhatsApp para %s (normalizado: %s): HTTP %s %s",
+                    to,
+                    recipient,
+                    response.status_code,
+                    response.text[:500],
+                )
+                return False
+        return True
+
     async def mark_message_read(self, message_id: str) -> None:
         if not message_id or not self._settings.whatsapp_access_token:
             return

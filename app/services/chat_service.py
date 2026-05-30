@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 
 from app.config import Settings
@@ -10,10 +11,19 @@ from app.services.whatsapp_service import WhatsAppService
 logger = logging.getLogger(__name__)
 
 _MAX_HISTORY = 6
+_MAX_PHOTOS_PER_REPLY = 3
+_PHOTO_TAG_PATTERN = re.compile(r"\[ENVIAR_FOTO:([^\]]+)\]", re.IGNORECASE)
 _FALLBACK_REPLY = (
     "Desculpe, tivemos um problema técnico. "
     "Tente novamente em alguns minutos ou entre em contato com nossa loja."
 )
+
+
+def extract_photo_tags(text: str) -> tuple[str, list[str]]:
+    urls = [match.strip() for match in _PHOTO_TAG_PATTERN.findall(text) if match.strip()]
+    clean_text = _PHOTO_TAG_PATTERN.sub("", text)
+    clean_text = re.sub(r"\n{3,}", "\n\n", clean_text).strip()
+    return clean_text, urls[:_MAX_PHOTOS_PER_REPLY]
 
 
 class ChatService:
@@ -48,9 +58,21 @@ class ChatService:
                 conversation_history=history,
             )
 
-            sent = await self._whatsapp.send_text_message(phone, reply)
-            if sent:
-                self._append_history(phone, message.text, reply)
+            clean_text, photo_urls = extract_photo_tags(reply)
+            text_sent = False
+            if clean_text:
+                text_sent = await self._whatsapp.send_text_message(phone, clean_text)
+
+            photos_sent = 0
+            for image_url in photo_urls:
+                if await self._whatsapp.send_image_message(phone, image_url):
+                    photos_sent += 1
+
+            if text_sent or photos_sent:
+                history_text = clean_text or (
+                    "Enviei as fotos solicitadas." if photos_sent else reply
+                )
+                self._append_history(phone, message.text, history_text)
             else:
                 logger.error(
                     "Resposta gerada mas não enviada para %s. "

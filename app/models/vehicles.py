@@ -1,6 +1,6 @@
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class VehicleItem(BaseModel):
@@ -17,8 +17,24 @@ class VehicleItem(BaseModel):
     in_stock: bool | None = Field(default=None, alias="inStock")
     published: bool | None = None
     description: str | None = None
+    image_url_list: list[str] = Field(default_factory=list, alias="imageUrlList")
 
     model_config = {"populate_by_name": True, "extra": "ignore"}
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_image_fields(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if not data.get("imageUrlList") and not data.get("image_url_list"):
+            images = data.get("images")
+            if isinstance(images, list):
+                data["imageUrlList"] = images
+            else:
+                single = data.get("imageUrl") or data.get("image_url")
+                if single:
+                    data["imageUrlList"] = [single]
+        return data
 
     def display_brand(self) -> str:
         raw = self.brand or ""
@@ -32,6 +48,13 @@ class VehicleItem(BaseModel):
     def display_year(self) -> str:
         y = self.model_year or self.year or self.manufacture_year
         return str(y) if y else "—"
+
+    def photo_urls(self, max_count: int = 3) -> list[str]:
+        return [
+            url.strip()
+            for url in self.image_url_list
+            if isinstance(url, str) and url.strip()
+        ][:max_count]
 
 
 class VehiclesPageResponse(BaseModel):
