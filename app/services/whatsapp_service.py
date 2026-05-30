@@ -8,6 +8,25 @@ from app.models.whatsapp import IncomingMessage, WebhookPayload
 logger = logging.getLogger(__name__)
 
 
+def normalize_brazil_whatsapp_number(phone: str) -> str:
+    """
+    Corrige o 9º dígito em números BR recebidos pelo webhook sem o nono dígito.
+
+    Regra: 55 + DDD (2) + 8 dígitos = 12 chars → insere '9' após o DDD.
+    Ex.: 558184424303 → 5581984424303
+    """
+    digits = "".join(c for c in phone if c.isdigit())
+    if digits.startswith("55") and len(digits) == 12:
+        normalized = digits[:4] + "9" + digits[4:]
+        logger.info(
+            "Número BR normalizado (9º dígito): %s → %s",
+            digits,
+            normalized,
+        )
+        return normalized
+    return digits or phone.strip()
+
+
 class WhatsAppService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
@@ -54,6 +73,8 @@ class WhatsAppService:
             logger.error("WhatsApp não configurado (token ou phone_number_id ausente)")
             return False
 
+        recipient = normalize_brazil_whatsapp_number(to_phone)
+
         headers = {
             "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
             "Content-Type": "application/json",
@@ -61,7 +82,7 @@ class WhatsAppService:
         body = {
             "messaging_product": "whatsapp",
             "recipient_type": "individual",
-            "to": to_phone,
+            "to": recipient,
             "type": "text",
             "text": {"preview_url": False, "body": text[:4096]},
         }
@@ -74,8 +95,9 @@ class WhatsAppService:
             )
             if response.status_code >= 400:
                 logger.error(
-                    "Erro ao enviar mensagem WhatsApp para %s: HTTP %s %s",
+                    "Erro ao enviar mensagem WhatsApp para %s (normalizado: %s): HTTP %s %s",
                     to_phone,
+                    recipient,
                     response.status_code,
                     response.text[:500],
                 )
