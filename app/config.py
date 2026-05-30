@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
-    vehicles_api_url: str = "https://api.almotoscaruaru.com.br/vehicles"
+    vehicles_api_url: str = "https://api.almotoscaruaru.com.br/api/public/vehicles"
     vehicles_api_token: str = ""
     vehicles_api_page_size: int = 50
 

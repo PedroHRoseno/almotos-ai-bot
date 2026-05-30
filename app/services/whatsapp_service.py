@@ -49,10 +49,10 @@ class WhatsAppService:
                     )
         return messages
 
-    async def send_text_message(self, to_phone: str, text: str) -> None:
+    async def send_text_message(self, to_phone: str, text: str) -> bool:
         if not self._settings.whatsapp_access_token or not self._settings.whatsapp_phone_number_id:
             logger.error("WhatsApp não configurado (token ou phone_number_id ausente)")
-            return
+            return False
 
         headers = {
             "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
@@ -74,11 +74,13 @@ class WhatsAppService:
             )
             if response.status_code >= 400:
                 logger.error(
-                    "Erro ao enviar mensagem WhatsApp: %s %s",
+                    "Erro ao enviar mensagem WhatsApp para %s: HTTP %s %s",
+                    to_phone,
                     response.status_code,
-                    response.text,
+                    response.text[:500],
                 )
-                response.raise_for_status()
+                return False
+        return True
 
     async def mark_message_read(self, message_id: str) -> None:
         if not message_id or not self._settings.whatsapp_access_token:

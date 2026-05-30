@@ -9,8 +9,11 @@ from app.services.whatsapp_service import WhatsAppService
 
 logger = logging.getLogger(__name__)
 
-# Histórico curto por número (últimas trocas) para contexto da conversa
 _MAX_HISTORY = 6
+_FALLBACK_REPLY = (
+    "Desculpe, tivemos um problema técnico. "
+    "Tente novamente em alguns minutos ou entre em contato com nossa loja."
+)
 
 
 class ChatService:
@@ -45,16 +48,19 @@ class ChatService:
                 conversation_history=history,
             )
 
-            await self._whatsapp.send_text_message(phone, reply)
-
-            self._append_history(phone, message.text, reply)
+            sent = await self._whatsapp.send_text_message(phone, reply)
+            if sent:
+                self._append_history(phone, message.text, reply)
+            else:
+                logger.error(
+                    "Resposta gerada mas não enviada para %s. "
+                    "Se o app Meta estiver em modo desenvolvimento, adicione o número "
+                    "em WhatsApp → API Setup → To (números de teste).",
+                    phone,
+                )
         except Exception:
             logger.exception("Erro ao processar mensagem de %s", phone)
-            await self._whatsapp.send_text_message(
-                phone,
-                "Desculpe, tivemos um problema técnico. "
-                "Tente novamente em alguns minutos ou entre em contato com nossa loja.",
-            )
+            await self._whatsapp.send_text_message(phone, _FALLBACK_REPLY)
 
     def _append_history(self, phone: str, user_text: str, assistant_text: str) -> None:
         hist = self._history[phone]
