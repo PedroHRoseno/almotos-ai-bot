@@ -18,13 +18,17 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    if not settings.openai_api_key:
-        logging.getLogger(__name__).warning("OPENAI_API_KEY não configurada")
+    if not settings.almotos_ai_url:
+        logging.getLogger(__name__).warning("ALMOTOS_AI_URL não configurada")
     if not settings.whatsapp_access_token:
         logging.getLogger(__name__).warning("WHATSAPP_ACCESS_TOKEN não configurada")
     if not settings.whatsapp_verify_token:
         logging.getLogger(__name__).warning(
             "WHATSAPP_VERIFY_TOKEN não configurada — verificação do webhook Meta vai falhar"
+        )
+    if not settings.whatsapp_app_secret:
+        logging.getLogger(__name__).warning(
+            "WHATSAPP_APP_SECRET não configurado — POST /webhook exige DEBUG=true em local"
         )
     if not settings.seller_1_phone or not settings.seller_2_phone:
         logging.getLogger(__name__).warning(
@@ -39,7 +43,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="AlMotos AI Bot",
-    description="Chatbot WhatsApp integrado à OpenAI e à API de veículos AlMotos",
+    description="Adapter WhatsApp (Meta Cloud API) do agent runtime almotos-ai",
     version="1.0.0",
     lifespan=lifespan,
 )

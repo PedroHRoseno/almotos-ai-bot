@@ -1,3 +1,6 @@
+import hmac
+import hashlib
+import json
 import logging
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
@@ -5,9 +8,8 @@ from fastapi.responses import PlainTextResponse
 
 from app.config import get_settings
 from app.models.whatsapp import WebhookPayload
+from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chat_service import ChatService
-from app.services.openai_service import OpenAIService
-from app.services.vehicles_api import VehiclesApiService
 from app.services.whatsapp_service import WhatsAppService
 
 logger = logging.getLogger(__name__)
@@ -20,8 +22,7 @@ def _get_chat_service() -> ChatService:
     return ChatService(
         settings=settings,
         whatsapp=WhatsAppService(settings),
-        vehicles_api=VehiclesApiService(settings),
-        openai=OpenAIService(settings),
+        almotos_ai=AlmotosAiClient(settings),
     )
 
 
@@ -33,14 +34,18 @@ def _mask(value: str) -> str:
     return f"{value[:2]}…{value[-2:]} (len={len(value)})"
 
 
+def verify_meta_signature(app_secret: str, body: bytes, header: str | None) -> bool:
+    if not app_secret or not header:
+        return False
+    received = header.strip()
+    expected = "sha256=" + hmac.new(
+        app_secret.encode("utf-8"), body, hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, received)
+
+
 @router.get("/webhook")
 async def verify_webhook(request: Request) -> Response:
-    """
-    Verificação inicial do webhook da Meta (WhatsApp Cloud API).
-
-    A Meta envia GET com query params hub.mode, hub.verify_token e hub.challenge.
-    Em sucesso, retorna APENAS hub.challenge em text/plain (sem JSON).
-    """
     params = request.query_params
     hub_mode = params.get("hub.mode", "")
     hub_verify_token = params.get("hub.verify_token", "")
@@ -82,7 +87,6 @@ async def verify_webhook(request: Request) -> Response:
         return Response(status_code=403, content="Forbidden", media_type="text/plain")
 
     logger.info("Webhook verificado com sucesso; retornando hub.challenge")
-    # Meta exige corpo = apenas o valor de hub.challenge (text/plain), status 200
     return PlainTextResponse(content=hub_challenge, status_code=200)
 
 
@@ -91,11 +95,24 @@ async def receive_webhook(
     request: Request,
     background_tasks: BackgroundTasks,
 ) -> Response:
-    """
-    Recebe eventos da Meta. Responde 200 imediatamente; processa mensagens em background.
-    """
+    raw = await request.body()
+    settings = get_settings()
+    secret = (settings.whatsapp_app_secret or "").strip()
+    signature = request.headers.get("x-hub-signature-256")
+
+    if secret:
+        if not verify_meta_signature(secret, raw, signature):
+            logger.warning("Webhook POST rejeitado: assinatura X-Hub-Signature-256 inválida")
+            return Response(status_code=403, content="Forbidden", media_type="text/plain")
+    elif not settings.debug:
+        logger.warning(
+            "WHATSAPP_APP_SECRET ausente — recusando POST em produção. "
+            "Defina o App Secret ou DEBUG=true só em local."
+        )
+        return Response(status_code=403, content="Forbidden", media_type="text/plain")
+
     try:
-        body = await request.json()
+        body = json.loads(raw.decode("utf-8") or "{}")
     except Exception:
         logger.warning("Webhook POST com body inválido")
         return Response(status_code=200, content="OK", media_type="text/plain")
@@ -106,7 +123,7 @@ async def receive_webhook(
         logger.warning("Webhook POST com payload não reconhecido")
         return Response(status_code=200, content="OK", media_type="text/plain")
 
-    whatsapp = WhatsAppService(get_settings())
+    whatsapp = WhatsAppService(settings)
     messages = whatsapp.parse_incoming_messages(payload)
 
     if messages:

@@ -1,11 +1,9 @@
+from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chat_service import ChatService
-from app.services.openai_service import OpenAIService
-from app.services.vehicles_api import VehiclesApiService
 from app.services.whatsapp_service import WhatsAppService
 
 __all__ = [
+    "AlmotosAiClient",
     "ChatService",
-    "OpenAIService",
-    "VehiclesApiService",
     "WhatsAppService",
 ]

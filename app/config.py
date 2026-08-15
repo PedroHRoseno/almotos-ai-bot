@@ -23,12 +23,16 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
 
+    almotos_ai_url: str = "http://localhost:3100"
+    redis_url: str = ""
+
     vehicles_api_url: str = "https://api.almotoscaruaru.com.br/api/public/vehicles"
     vehicles_api_token: str = ""
     vehicles_api_page_size: int = 50
 
     seller_1_phone: str = ""
     seller_2_phone: str = ""
+    whatsapp_app_secret: str = ""
 
     @property
     def whatsapp_graph_url(self) -> str:
