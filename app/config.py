@@ -12,23 +12,15 @@ class Settings(BaseSettings):
     )
 
     host: str = "0.0.0.0"
-    # Railway injeta PORT; pydantic-settings lê PORT (case insensitive)
     port: int = 8000
     debug: bool = False
     whatsapp_verify_token: str = ""
     whatsapp_access_token: str = ""
     whatsapp_phone_number_id: str = ""
     whatsapp_api_version: str = "v21.0"
+    whatsapp_app_secret: str = ""
 
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-
-    vehicles_api_url: str = "https://api.almotoscaruaru.com.br/api/public/vehicles"
-    vehicles_api_token: str = ""
-    vehicles_api_page_size: int = 50
-
-    seller_1_phone: str = ""
-    seller_2_phone: str = ""
+    almotos_ai_url: str = "http://localhost:3100"
 
     @property
     def whatsapp_graph_url(self) -> str:
