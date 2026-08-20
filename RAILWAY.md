@@ -14,22 +14,26 @@
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
 | `ALMOTOS_AI_URL` | Sim | URL pública do `almotos-ai`, sem barra no fim |
-| `WHATSAPP_VERIFY_TOKEN` | Sim | Token de verificação do webhook (Meta) |
-| `WHATSAPP_ACCESS_TOKEN` | Sim | Token da Meta Cloud API |
-| `WHATSAPP_PHONE_NUMBER_ID` | Sim | ID do número WhatsApp Business |
-| `WHATSAPP_APP_SECRET` | Sim (prod) | App Secret; sem isso o POST `/webhook` retorna 403 |
+| `CHATWOOT_BASE_URL` | Sim | URL do Chatwoot, sem barra no fim |
+| `CHATWOOT_API_TOKEN` | Sim | `api_access_token` do AgentBot |
+| `CHATWOOT_ACCOUNT_ID` | Não | Padrão: `1` |
+| `WHATSAPP_VERIFY_TOKEN` | Transição | Token de verificação do webhook Meta (legado) |
+| `WHATSAPP_ACCESS_TOKEN` | Transição | Token da Meta Cloud API (legado) |
+| `WHATSAPP_PHONE_NUMBER_ID` | Transição | ID do número WhatsApp Business (legado) |
+| `WHATSAPP_APP_SECRET` | Transição | App Secret Meta; sem isso o POST `/webhook` retorna 403 |
 | `WHATSAPP_API_VERSION` | Não | Padrão: `v21.0` |
 
-**Remover** se ainda existirem: `OPENAI_API_KEY`, `VEHICLES_API_URL`, `VEHICLES_API_TOKEN`. O bot **não** chama LLM nem o Kotlin (ADR-003).
+**Remover** se ainda existirem: `OPENAI_API_KEY`, `VEHICLES_API_URL`, `VEHICLES_API_TOKEN`. O bot **não** chama LLM nem o SoR (ADR-003).
 
 `PORT` é injetado pelo Railway.
 
-## 3. Domínio e webhook Meta
+## 3. Domínio e webhook Chatwoot
 
 - **Generate Domain** → `https://seu-bot.up.railway.app`
-- Callback URL: `https://seu-bot.up.railway.app/webhook`
-- Verify token = `WHATSAPP_VERIFY_TOKEN`
-- Assinar o campo **messages**
+- URL do AgentBot: `https://seu-bot.up.railway.app/webhook/chatwoot`
+- No Chatwoot: Settings → Agent Bots → webhook URL + token (`CHATWOOT_API_TOKEN`)
+
+Webhook Meta legado (transição): `https://seu-bot.up.railway.app/webhook`
 
 ## 4. Health
 

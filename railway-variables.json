@@ -6,5 +6,8 @@
   "WHATSAPP_PHONE_NUMBER_ID": "COLOQUE_O_PHONE_NUMBER_ID",
   "WHATSAPP_API_VERSION": "v21.0",
   "WHATSAPP_APP_SECRET": "COLOQUE_O_APP_SECRET_DA_META",
-  "ALMOTOS_AI_URL": "https://almotos-ai-production.up.railway.app"
+  "ALMOTOS_AI_URL": "https://almotos-ai-production.up.railway.app",
+  "CHATWOOT_BASE_URL": "https://chatwoot-production-d174.up.railway.app",
+  "CHATWOOT_API_TOKEN": "COLOQUE_O_API_ACCESS_TOKEN_DO_AGENT_BOT",
+  "CHATWOOT_ACCOUNT_ID": "1"
 }

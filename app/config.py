@@ -22,6 +22,10 @@ class Settings(BaseSettings):
 
     almotos_ai_url: str = "http://localhost:3100"
 
+    chatwoot_base_url: str = ""
+    chatwoot_api_token: str = ""
+    chatwoot_account_id: int = 1
+
     @property
     def whatsapp_graph_url(self) -> str:
         return (
