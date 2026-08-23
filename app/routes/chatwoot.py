@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -12,6 +13,9 @@ from app.services.chatwoot_client import ChatwootClient
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["chatwoot"])
+
+# Pausa no worker (não no request) para o WhatsApp/Evolution não marcar a sessão como bot.
+_HUMAN_TYPING_DELAY_SECONDS = 4
 
 
 def _get_chatwoot_chat_service() -> ChatwootChatService:
@@ -50,9 +54,16 @@ async def receive_chatwoot_webhook(
         return Response(status_code=200, content="OK", media_type="text/plain")
 
     chat = _get_chatwoot_chat_service()
-    background_tasks.add_task(chat.handle_incoming, payload)
+
+    async def process_incoming() -> None:
+        # FastAPI já devolveu 200; sleep aqui não segura o webhook nem a thread.
+        await asyncio.sleep(_HUMAN_TYPING_DELAY_SECONDS)
+        await chat.handle_incoming(payload)
+
+    background_tasks.add_task(process_incoming)
     logger.info(
-        "Webhook Chatwoot: conversa %s enfileirada",
+        "Webhook Chatwoot: conversa %s enfileirada (pausa humana %ss no worker)",
         payload.conversation.id if payload.conversation else "?",
+        _HUMAN_TYPING_DELAY_SECONDS,
     )
     return Response(status_code=200, content="OK", media_type="text/plain")
