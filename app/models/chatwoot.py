@@ -47,6 +47,8 @@ class ChatwootWebhookPayload(BaseModel):
     message_type: str | None = None
     content: str | None = None
     content_type: str | None = None
+    source_id: str | None = None
+    content_attributes: dict[str, Any] | None = None
     conversation: ChatwootConversation | None = None
     sender: ChatwootSender | None = None
     private: bool = False
@@ -117,3 +119,13 @@ class ChatwootWebhookPayload(BaseModel):
             str(extra.get("source_id") or "") or None,
         )
         return number
+
+    def whatsapp_message_id(self) -> str | None:
+        attrs = self.content_attributes if isinstance(self.content_attributes, dict) else {}
+        for value in (self.source_id, attrs.get("source_id"), attrs.get("whatsapp_id")):
+            if not isinstance(value, str):
+                continue
+            raw = value.strip()
+            if raw and ("@" in raw or len(raw) >= 12):
+                return raw
+        return None

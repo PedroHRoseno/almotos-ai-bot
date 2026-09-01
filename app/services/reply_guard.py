@@ -56,6 +56,22 @@ def contact_key(*candidates: str | None) -> str:
     return ""
 
 
+def typing_seconds(text: str, *, kind: str = "text") -> float:
+    """Tempo de 'digitação' proporcional ao tamanho, com teto humano."""
+    if kind == "media":
+        return random.uniform(2.8, 5.5)
+    chars = max(len(text or ""), 12)
+    per_char = random.uniform(0.042, 0.078)
+    seconds = chars * per_char + random.uniform(1.2, 3.4)
+    if random.random() < 0.14:
+        seconds += random.uniform(2.5, 6.5)
+    return min(max(seconds, 3.2), 16.0)
+
+
+def typing_delay_ms(text: str, *, kind: str = "text") -> int:
+    return int(typing_seconds(text, kind=kind) * 1000)
+
+
 def time_bucket(now: float | None = None) -> int:
     return int((now if now is not None else time.time()) // _BUCKET_SECONDS)
 
@@ -128,10 +144,19 @@ class ReplyGuard:
         bucket.append((now, needle))
         self._outbound[key] = bucket[-12:]
 
-    async def pace(self, contact_key: str) -> None:
+    async def pace(
+        self,
+        contact_key: str,
+        *,
+        extra_seconds: float = 0.0,
+        kind: str = "text",
+    ) -> None:
         """Bloqueia até ser seguro enviar ao WhatsApp (também no fallback de erro)."""
         key = contact_key or "unknown"
-        jitter = random.uniform(0.4, 1.8)
+        jitter = random.uniform(0.8, 3.6)
+        min_gap = self._min_reply
+        if kind == "media":
+            min_gap = max(3.6, self._min_reply * 0.55)
         async with self._lock:
             now = time.monotonic()
             wait = jitter
@@ -139,12 +164,13 @@ class ReplyGuard:
             if inbound is not None:
                 wait = max(wait, self._think - (now - inbound))
             last = self._last_send.get(key, 0.0)
-            wait = max(wait, self._min_reply - (now - last))
+            wait = max(wait, min_gap - (now - last))
+            if extra_seconds > 0:
+                wait = max(wait, extra_seconds)
             wait = max(0.0, wait)
-            # Reserva o slot agora para concorrentes empilharem em cima deste envio.
             self._last_send[key] = now + wait
         if wait > 0:
-            logger.info("Pacing WhatsApp %.1fs key=%s", wait, key)
+            logger.info("Pacing WhatsApp %.1fs key=%s kind=%s", wait, key, kind)
             await asyncio.sleep(wait)
 
 

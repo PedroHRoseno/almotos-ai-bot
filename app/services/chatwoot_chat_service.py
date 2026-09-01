@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import random
 import re
 
 from app.config import Settings
@@ -6,6 +8,7 @@ from app.models.chatwoot import ChatwootWebhookPayload
 from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chatwoot_client import ChatwootClient
 from app.services.evolution_client import EvolutionClient
+from app.services.reply_guard import typing_seconds
 from app.services.whatsapp_format import format_whatsapp_reply, unique_media_urls
 
 logger = logging.getLogger(__name__)
@@ -71,6 +74,10 @@ class ChatwootChatService:
         )
 
         try:
+            await asyncio.sleep(random.uniform(1.1, 3.0))
+            if number and self._evolution.configured():
+                await self._evolution.signal_reading(number, payload.whatsapp_message_id())
+
             result = await self._almotos_ai.complete(thread_id=thread_id, text=user_text)
             text, extracted = format_whatsapp_reply(result.get("text") or "")
             images = unique_media_urls((result.get("images") or []) + extracted)
@@ -78,8 +85,16 @@ class ChatwootChatService:
 
             text_sent = False
             if text:
+                extra = typing_seconds(text)
+                if number and self._evolution.configured():
+                    await self._evolution.send_presence(
+                        number, delay_ms=int(extra * 1000)
+                    )
                 text_sent = await self._chatwoot.send_message(
-                    conversation_id, text, whatsapp_number=number
+                    conversation_id,
+                    text,
+                    whatsapp_number=number,
+                    extra_seconds=extra,
                 )
 
             photos_sent = await self._send_photos(payload, images)

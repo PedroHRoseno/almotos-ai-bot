@@ -40,6 +40,7 @@ class ChatwootClient:
         text: str,
         *,
         whatsapp_number: str | None = None,
+        extra_seconds: float = 0.0,
     ) -> bool:
         """POST outgoing na conversa — o Chatwoot entrega no canal (WA/widget/etc.)."""
         if not self._configured():
@@ -51,7 +52,7 @@ class ChatwootClient:
 
         pace_key = contact_key(whatsapp_number) or f"cw:{conversation_id}"
         guard = get_reply_guard()
-        await guard.pace(pace_key)
+        await guard.pace(pace_key, extra_seconds=extra_seconds, kind="text")
 
         url = self._conversation_url(conversation_id, "messages")
         payload = {"content": body[:4096], "message_type": "outgoing"}

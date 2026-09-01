@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import random
 
 from app.config import Settings
 from app.models.evolution import EvolutionIncomingMessage
@@ -55,6 +57,8 @@ class EvolutionChatService:
 
         thread_id = f"wa:{message.number}"
         try:
+            await asyncio.sleep(random.uniform(1.1, 3.0))
+            await self._evolution.signal_reading(message.number, message.message_id or None)
             result = await self._almotos_ai.complete(thread_id=thread_id, text=user_text)
             text, extracted = format_whatsapp_reply(result.get("text") or "")
             images = unique_media_urls((result.get("images") or []) + extracted)

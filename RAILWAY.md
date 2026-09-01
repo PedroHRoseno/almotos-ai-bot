@@ -22,8 +22,8 @@
 | `EVOLUTION_INSTANCE` | Sim (fotos) | Nome da instância WhatsApp |
 | `EVOLUTION_WEBHOOK_SECRET` | Não | Token extra aceito no webhook (token da instância, se ≠ da global) |
 | `EVOLUTION_WEBHOOK_AUTH_REQUIRED` | Não | `true` = 401 se a chave não bater. Padrão `false` (loga e processa) |
-| `WHATSAPP_THINK_SECONDS` | Não | Pausa mínima até a 1ª resposta (padrão `5`, também em erro) |
-| `WHATSAPP_MIN_REPLY_SECONDS` | Não | Intervalo mínimo entre envios ao mesmo contato (padrão `6`) |
+| `WHATSAPP_THINK_SECONDS` | Não | Pausa mínima até a 1ª resposta (padrão `6`, também em erro) |
+| `WHATSAPP_MIN_REPLY_SECONDS` | Não | Intervalo mínimo entre envios ao mesmo contato (padrão `8`) |
 | `WHATSAPP_VERIFY_TOKEN` | Transição | Token de verificação do webhook Meta (legado) |
 | `WHATSAPP_ACCESS_TOKEN` | Transição | Token da Meta Cloud API (legado) |
 | `WHATSAPP_PHONE_NUMBER_ID` | Transição | ID do número WhatsApp Business (legado) |
