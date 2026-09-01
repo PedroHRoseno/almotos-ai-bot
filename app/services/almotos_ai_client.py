@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 
 from app.config import Settings
+from app.services.whatsapp_format import unique_media_urls
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,15 @@ class AlmotosAiClient:
                 response.raise_for_status()
             data = response.json()
             if not isinstance(data, dict):
-                return {"text": str(data), "images": []}
+                return {"text": str(data), "images": [], "handoff": False}
             images = data.get("images") or []
             if not isinstance(images, list):
                 images = []
+
             return {
                 "text": (data.get("text") or "").strip(),
-                "images": [u for u in images if isinstance(u, str) and u.strip()][:3],
+                "images": unique_media_urls(
+                    [u for u in images if isinstance(u, str) and u.strip()]
+                ),
+                "handoff": bool(data.get("handoff")),
             }

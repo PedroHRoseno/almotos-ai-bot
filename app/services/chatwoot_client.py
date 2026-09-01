@@ -78,3 +78,27 @@ class ChatwootClient:
                 return False
         logger.info("Chatwoot: conversa %s transferida para humano (status=open)", conversation_id)
         return True
+
+    async def send_private_note(self, conversation_id: int, text: str) -> bool:
+        """Nota interna na conversa — o cliente não vê."""
+        if not self._configured():
+            return False
+        body = (text or "").strip()
+        if not body:
+            return False
+
+        url = self._conversation_url(conversation_id, "messages")
+        payload = {"content": body[:4096], "message_type": "outgoing", "private": True}
+        timeout = httpx.Timeout(30.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(url, headers=self._headers(), json=payload)
+            if response.status_code >= 400:
+                logger.error(
+                    "Chatwoot send_private_note conversation=%s HTTP %s: %s",
+                    conversation_id,
+                    response.status_code,
+                    response.text[:500],
+                )
+                return False
+        logger.info("Chatwoot: nota privada na conversa %s", conversation_id)
+        return True

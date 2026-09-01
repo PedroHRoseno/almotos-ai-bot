@@ -10,6 +10,7 @@ _BARE_IMAGE_URL = re.compile(
     r"|\.(?:jpe?g|png|webp|gif)(?:\?[^\s<>\])\"]*)?)",
     re.IGNORECASE,
 )
+_WAME_URL = re.compile(r"https?://(?:wa\.me|api\.whatsapp\.com)/[^\s<>\])\"]+", re.IGNORECASE)
 
 _MAX_IMAGES = 3
 
@@ -21,16 +22,38 @@ def is_image_url(url: str) -> bool:
     return "s3" in lower and "amazonaws.com" in lower
 
 
+def _media_identity(url: str) -> str:
+    return url.strip().split("?", 1)[0].split("#", 1)[0].rstrip("/").lower()
+
+
 def _push(images: list[str], url: str) -> None:
     clean = (url or "").strip().rstrip("),.;")
-    if clean and clean not in images and len(images) < _MAX_IMAGES:
-        images.append(clean)
+    if not clean:
+        return
+    key = _media_identity(clean)
+    if any(_media_identity(item) == key for item in images):
+        return
+    if len(images) >= _MAX_IMAGES:
+        return
+    images.append(clean)
+
+
+def unique_media_urls(urls: list[str] | None, *, limit: int = _MAX_IMAGES) -> list[str]:
+    """Fotos distintas do cadastro. Não preenche até N com a mesma URL."""
+    out: list[str] = []
+    for url in urls or []:
+        _push(out, url)
+        if len(out) >= limit:
+            break
+    return out
 
 
 def _format_link(label: str, href: str) -> str:
     text = (label or "").strip()
     if not text or text == href:
         return href
+    if _WAME_URL.search(href):
+        return ""
     return f"🔗 {text}: {href}"
 
 
@@ -39,6 +62,7 @@ def format_whatsapp_reply(raw: str) -> tuple[str, list[str]]:
 
     WhatsApp não renderiza `[texto](url)` nem `![foto](url)`. A URL de catálogo
     fica visível em texto; URLs de foto saem do corpo para `/message/sendMedia`.
+    Links wa.me são removidos — o handoff fica na mesma conversa Chatwoot.
     """
     images: list[str] = []
     text = raw or ""
@@ -69,6 +93,7 @@ def format_whatsapp_reply(raw: str) -> tuple[str, list[str]]:
     text = _MD_IMAGE.sub(_take_md_image, text)
     text = _MD_LINK.sub(_replace_md_link, text)
     text = _BARE_IMAGE_URL.sub(_take_bare_image, text)
+    text = _WAME_URL.sub("", text)
     text = _MD_BOLD.sub(r"*\1*", text)
     text = re.sub(r"[ \t]+\n", "\n", text)
     text = re.sub(r"\n{3,}", "\n\n", text).strip()
@@ -76,8 +101,7 @@ def format_whatsapp_reply(raw: str) -> tuple[str, list[str]]:
 
 
 def merge_image_urls(*groups: list[str] | None) -> list[str]:
-    out: list[str] = []
+    merged: list[str] = []
     for group in groups:
-        for url in group or []:
-            _push(out, url)
-    return out
+        merged.extend(group or [])
+    return unique_media_urls(merged)

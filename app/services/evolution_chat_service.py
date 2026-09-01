@@ -4,7 +4,7 @@ from app.config import Settings
 from app.models.evolution import EvolutionIncomingMessage
 from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.evolution_client import EvolutionClient
-from app.services.whatsapp_format import format_whatsapp_reply, merge_image_urls
+from app.services.whatsapp_format import format_whatsapp_reply, unique_media_urls
 
 logger = logging.getLogger(__name__)
 
@@ -57,19 +57,20 @@ class EvolutionChatService:
         try:
             result = await self._almotos_ai.complete(thread_id=thread_id, text=user_text)
             text, extracted = format_whatsapp_reply(result.get("text") or "")
-            images = merge_image_urls(result.get("images") or [], extracted)
+            images = unique_media_urls((result.get("images") or []) + extracted)
             await self._deliver(message.number, text, images)
         except Exception:
             logger.exception("Erro ao processar Evolution remoteJid=%s", message.remote_jid)
             await self._evolution.send_text(message.number, _FALLBACK_REPLY)
 
     async def _deliver(self, number: str, text: str, images: list[str]) -> None:
+        photos = unique_media_urls(images)
         text_sent = False
         if text:
             text_sent = await self._evolution.send_text(number, text)
 
         photos_sent = 0
-        for index, image_url in enumerate(images):
+        for index, image_url in enumerate(photos):
             caption = text if index == 0 and not text_sent else ""
             if await self._evolution.send_media(number, image_url, caption=caption):
                 photos_sent += 1

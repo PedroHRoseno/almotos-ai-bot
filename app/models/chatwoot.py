@@ -64,11 +64,19 @@ class ChatwootWebhookPayload(BaseModel):
     def is_incoming(self) -> bool:
         return self.message_type == "incoming"
 
+    def is_with_human(self) -> bool:
+        """Conversa já aberta para um atendente — o bot não deve responder."""
+        if self.conversation is None:
+            return False
+        return (self.conversation.status or "").strip().lower() == "open"
+
     def should_process_ai(self) -> bool:
         """Regra de ouro: só `message_created` incoming público entra na IA."""
         if self.event != "message_created":
             return False
         if self.conversation is None:
+            return False
+        if self.is_with_human():
             return False
         if self.is_outgoing or not self.is_incoming:
             return False

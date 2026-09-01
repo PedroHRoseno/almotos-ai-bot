@@ -70,7 +70,7 @@ class EvolutionClient:
         payload: dict[str, object] = {
             "number": self._number(to),
             "text": body_text[:4096],
-            "linkPreview": True,
+            "linkPreview": False,
         }
         if delay_ms > 0:
             payload["delay"] = delay_ms
