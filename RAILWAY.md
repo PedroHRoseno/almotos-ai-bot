@@ -22,6 +22,8 @@
 | `EVOLUTION_INSTANCE` | Sim (fotos) | Nome da instância WhatsApp |
 | `EVOLUTION_WEBHOOK_SECRET` | Não | Token extra aceito no webhook (token da instância, se ≠ da global) |
 | `EVOLUTION_WEBHOOK_AUTH_REQUIRED` | Não | `true` = 401 se a chave não bater. Padrão `false` (loga e processa) |
+| `WHATSAPP_THINK_SECONDS` | Não | Pausa mínima até a 1ª resposta (padrão `5`, também em erro) |
+| `WHATSAPP_MIN_REPLY_SECONDS` | Não | Intervalo mínimo entre envios ao mesmo contato (padrão `6`) |
 | `WHATSAPP_VERIFY_TOKEN` | Transição | Token de verificação do webhook Meta (legado) |
 | `WHATSAPP_ACCESS_TOKEN` | Transição | Token da Meta Cloud API (legado) |
 | `WHATSAPP_PHONE_NUMBER_ID` | Transição | ID do número WhatsApp Business (legado) |
@@ -38,7 +40,7 @@
 - URL do AgentBot: `https://seu-bot.up.railway.app/webhook/chatwoot`
 - No Chatwoot: Settings → Agent Bots → webhook URL + token (`CHATWOOT_API_TOKEN`)
 
-Webhook Evolution (opcional, se a instância apontar direto para o bot): `https://seu-bot.up.railway.app/webhook/evolution`. Não use os dois inbound ao mesmo tempo na mesma instância — a resposta duplicaria.
+Webhook Evolution: `https://seu-bot.up.railway.app/webhook/evolution`. Com Chatwoot configurado o bot **ignora** o inbound da Evolution (só ACK 200) para não responder em duplicata. O webhook da instância na Evolution pode ficar desligado.
 
 Webhook Meta legado (transição): `https://seu-bot.up.railway.app/webhook`
 

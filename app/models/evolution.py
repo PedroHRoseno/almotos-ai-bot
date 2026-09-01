@@ -39,6 +39,14 @@ _UPSERT_EVENTS = frozenset(
 )
 
 
+def _is_from_me(value: Any) -> bool:
+    if value is True or value == 1:
+        return True
+    if isinstance(value, str) and value.strip().lower() in {"true", "1", "yes"}:
+        return True
+    return False
+
+
 def _as_dict(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
@@ -228,8 +236,7 @@ def _iter_data_items(data: Any):
 
 def _parse_item(item: dict[str, Any], fallback_sender: str | None) -> EvolutionIncomingMessage | None:
     key = _as_dict(item.get("key"))
-    from_me = bool(key.get("fromMe") or item.get("fromMe"))
-    if from_me:
+    if _is_from_me(key.get("fromMe")) or _is_from_me(item.get("fromMe")) or _is_from_me(item.get("from_me")):
         return None
 
     jid: str | None = None

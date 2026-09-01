@@ -1,4 +1,3 @@
-import asyncio
 import hmac
 import json
 import logging
@@ -10,12 +9,11 @@ from app.models.evolution import EvolutionWebhookPayload, parse_evolution_payloa
 from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.evolution_chat_service import EvolutionChatService
 from app.services.evolution_client import EvolutionClient
+from app.services.reply_guard import contact_key, get_reply_guard, shared_fingerprints
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["evolution"])
-
-_HUMAN_TYPING_DELAY_SECONDS = 4
 
 # Evolution / proxies variam o nome. Starlette já é case-insensitive.
 _APIKEY_HEADER_NAMES = (
@@ -149,6 +147,13 @@ async def receive_evolution_webhook(
     if not _apikey_ok(settings, payload, request):
         return Response(status_code=401, content="Unauthorized", media_type="text/plain")
 
+    if settings.chatwoot_base_url and settings.chatwoot_api_token:
+        logger.info(
+            "Evolution inbound ignorado: Chatwoot é a caixa (anti-loop). "
+            "Desmarque o webhook da instância na Evolution."
+        )
+        return Response(status_code=200, content="OK", media_type="text/plain")
+
     if not payload.is_upsert():
         logger.debug("Evolution ignorado event=%s", payload.event)
         return Response(status_code=200, content="OK", media_type="text/plain")
@@ -158,16 +163,24 @@ async def receive_evolution_webhook(
         return Response(status_code=200, content="OK", media_type="text/plain")
 
     chat = _get_evolution_chat_service()
+    guard = get_reply_guard()
+    accepted = []
+    for msg in messages:
+        key = contact_key(msg.number, msg.remote_jid)
+        fps = shared_fingerprints(
+            contact_key=key,
+            text=msg.text,
+            source_id=f"ev:{msg.message_id}" if msg.message_id else None,
+        )
+        if await guard.claim_inbound(contact_key=key, fingerprints=fps, text=msg.text):
+            accepted.append(msg)
+    if not accepted:
+        return Response(status_code=200, content="OK", media_type="text/plain")
 
     async def process_incoming() -> None:
-        await asyncio.sleep(_HUMAN_TYPING_DELAY_SECONDS)
-        for msg in messages:
+        for msg in accepted:
             await chat.handle_incoming(msg)
 
     background_tasks.add_task(process_incoming)
-    logger.info(
-        "Webhook Evolution: %s mensagem(ns) enfileirada(s) (pausa humana %ss)",
-        len(messages),
-        _HUMAN_TYPING_DELAY_SECONDS,
-    )
+    logger.info("Webhook Evolution: %s mensagem(ns) enfileirada(s) (pacing no envio)", len(accepted))
     return Response(status_code=200, content="OK", media_type="text/plain")

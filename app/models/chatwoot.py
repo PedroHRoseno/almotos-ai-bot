@@ -43,6 +43,7 @@ class ChatwootWebhookPayload(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     event: str = ""
+    id: int | str | None = None
     message_type: str | None = None
     content: str | None = None
     content_type: str | None = None
@@ -84,7 +85,13 @@ class ChatwootWebhookPayload(BaseModel):
             return False
         if not (self.content or "").strip():
             return False
-        if self.sender and (self.sender.type or "").lower() == "agent_bot":
+        if self.sender and (self.sender.type or "").lower() in {
+            "user",
+            "agent",
+            "agent_bot",
+            "agentbot",
+            "captain",
+        }:
             return False
         return True
 

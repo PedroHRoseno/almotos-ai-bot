@@ -4,6 +4,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config import Settings
+from app.services.reply_guard import get_reply_guard
 from app.services.whatsapp_service import normalize_brazil_whatsapp_number
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,14 @@ class EvolutionClient:
         }
         if delay_ms > 0:
             payload["delay"] = delay_ms
-        return await self._post("/message/sendText", payload, "sendText")
+
+        number = self._number(to)
+        guard = get_reply_guard()
+        await guard.pace(number)
+        ok = await self._post("/message/sendText", payload, "sendText")
+        if ok:
+            guard.remember_outbound(number, body_text)
+        return ok
 
     async def send_media(
         self,
@@ -106,7 +114,14 @@ class EvolutionClient:
             payload["caption"] = caption_text[:1024]
         if delay_ms > 0:
             payload["delay"] = delay_ms
-        return await self._post("/message/sendMedia", payload, "sendMedia")
+
+        number = self._number(to)
+        guard = get_reply_guard()
+        await guard.pace(number)
+        ok = await self._post("/message/sendMedia", payload, "sendMedia")
+        if ok:
+            guard.remember_outbound(number, caption_text or "__media__")
+        return ok
 
     async def _post(self, path: str, payload: dict[str, object], op: str) -> bool:
         url = self._endpoint(path)

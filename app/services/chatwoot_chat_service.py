@@ -27,12 +27,11 @@ _HANDOFF_PATTERN = re.compile(
 
 
 class ChatwootChatService:
-    """Cola webhook Chatwoot → orquestrador (`/v1/chat`) → Chatwoot + Evolution.
+    """Cola webhook Chatwoot → orquestrador (`/v1/chat`) → Chatwoot (+ fotos Evolution).
 
-    Texto do cliente no WhatsApp sai pela Evolution (`linkPreview: false`) quando
-    há número e a API está configurada; a caixa Chatwoot recebe nota privada.
-    Sem Evolution, o texto volta pela API Chatwoot. Fotos: `/message/sendMedia`,
-    só URLs distintas do cadastro.
+    Texto sai como outgoing no Chatwoot (a caixa entrega no WhatsApp). Não usamos
+    Evolution sendText neste caminho — isso ecoava no webhook e gerava loop.
+    Fotos: `/message/sendMedia`, só URLs distintas do cadastro.
     """
 
     def __init__(
@@ -61,6 +60,7 @@ class ChatwootChatService:
         conversation_id = payload.conversation.id
         user_text = (payload.content or "").strip()
         sender_name = (payload.sender.name if payload.sender else None) or "contato"
+        number = payload.whatsapp_number()
         thread_id = f"chatwoot:{conversation_id}"
 
         logger.info(
@@ -75,24 +75,19 @@ class ChatwootChatService:
             text, extracted = format_whatsapp_reply(result.get("text") or "")
             images = unique_media_urls((result.get("images") or []) + extracted)
             handoff = bool(result.get("handoff")) or self._wants_human(user_text)
-            number = payload.whatsapp_number()
-            use_evolution = bool(number) and self._evolution.configured()
 
             text_sent = False
             if text:
-                if use_evolution:
-                    text_sent = await self._evolution.send_text(number, text)
-                    if text_sent:
-                        await self._chatwoot.send_private_note(conversation_id, text)
-                    else:
-                        text_sent = await self._chatwoot.send_message(conversation_id, text)
-                else:
-                    text_sent = await self._chatwoot.send_message(conversation_id, text)
+                text_sent = await self._chatwoot.send_message(
+                    conversation_id, text, whatsapp_number=number
+                )
 
             photos_sent = await self._send_photos(payload, images)
             if not text_sent and not photos_sent:
                 logger.error("Resposta gerada mas não enviada na conversa %s", conversation_id)
-                await self._chatwoot.send_message(conversation_id, _FALLBACK_REPLY)
+                await self._chatwoot.send_message(
+                    conversation_id, _FALLBACK_REPLY, whatsapp_number=number
+                )
 
             if handoff:
                 await self._chatwoot.handoff_to_human(conversation_id)
@@ -102,7 +97,9 @@ class ChatwootChatService:
                 )
         except Exception:
             logger.exception("Erro ao processar conversa Chatwoot %s", conversation_id)
-            await self._chatwoot.send_message(conversation_id, _FALLBACK_REPLY)
+            await self._chatwoot.send_message(
+                conversation_id, _FALLBACK_REPLY, whatsapp_number=number
+            )
 
     async def _send_photos(self, payload: ChatwootWebhookPayload, images: list[str]) -> int:
         photos = unique_media_urls(images)

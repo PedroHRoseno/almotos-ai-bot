@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # false (padrão): loga mismatch e processa — necessário para e2e enquanto a
     # Evolution manda instance token no body e global key no header. true = 401.
     evolution_webhook_auth_required: bool = False
+    # Pausa mínima até a 1ª resposta (mesmo em erro) e entre envios ao mesmo contato.
+    whatsapp_think_seconds: float = 5.0
+    whatsapp_min_reply_seconds: float = 6.0
 
     @property
     def whatsapp_graph_url(self) -> str:

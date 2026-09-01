@@ -3,6 +3,7 @@ import logging
 import httpx
 
 from app.config import Settings
+from app.services.reply_guard import contact_key, get_reply_guard
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,13 @@ class ChatwootClient:
         logger.error("Chatwoot não configurado (CHATWOOT_BASE_URL ou CHATWOOT_API_TOKEN ausente)")
         return False
 
-    async def send_message(self, conversation_id: int, text: str) -> bool:
+    async def send_message(
+        self,
+        conversation_id: int,
+        text: str,
+        *,
+        whatsapp_number: str | None = None,
+    ) -> bool:
         """POST outgoing na conversa — o Chatwoot entrega no canal (WA/widget/etc.)."""
         if not self._configured():
             return False
@@ -41,6 +48,10 @@ class ChatwootClient:
         if not body:
             logger.warning("send_message ignorado: conteúdo vazio (conversation_id=%s)", conversation_id)
             return False
+
+        pace_key = contact_key(whatsapp_number) or f"cw:{conversation_id}"
+        guard = get_reply_guard()
+        await guard.pace(pace_key)
 
         url = self._conversation_url(conversation_id, "messages")
         payload = {"content": body[:4096], "message_type": "outgoing"}
@@ -55,6 +66,7 @@ class ChatwootClient:
                     response.text[:500],
                 )
                 return False
+        guard.remember_outbound(pace_key, body)
         logger.info("Chatwoot: mensagem enviada na conversa %s", conversation_id)
         return True
 

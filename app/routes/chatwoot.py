@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 
@@ -10,13 +9,11 @@ from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chatwoot_chat_service import ChatwootChatService
 from app.services.chatwoot_client import ChatwootClient
 from app.services.evolution_client import EvolutionClient
+from app.services.reply_guard import contact_key, get_reply_guard, shared_fingerprints
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["chatwoot"])
-
-# Pausa no worker (não no request) para o WhatsApp/Evolution não marcar a sessão como bot.
-_HUMAN_TYPING_DELAY_SECONDS = 4
 
 
 def _get_chatwoot_chat_service() -> ChatwootChatService:
@@ -60,19 +57,36 @@ async def receive_chatwoot_webhook(
         return Response(status_code=200, content="OK", media_type="text/plain")
 
     if not payload.should_process_ai():
+        logger.info(
+            "Chatwoot ignorado event=%s type=%s sender=%s status=%s",
+            payload.event,
+            payload.message_type,
+            (payload.sender.type if payload.sender else None),
+            payload.conversation.status if payload.conversation else None,
+        )
+        return Response(status_code=200, content="OK", media_type="text/plain")
+
+    number = payload.whatsapp_number()
+    conv_id = payload.conversation.id if payload.conversation else None
+    key = contact_key(number) or (f"cw:{conv_id}" if conv_id else "cw:unknown")
+    fps = shared_fingerprints(
+        contact_key=key,
+        text=payload.content or "",
+        source_id=f"cw:{payload.id}" if payload.id is not None else None,
+    )
+    claimed = await get_reply_guard().claim_inbound(
+        contact_key=key,
+        fingerprints=fps,
+        text=payload.content or "",
+    )
+    if not claimed:
         return Response(status_code=200, content="OK", media_type="text/plain")
 
     chat = _get_chatwoot_chat_service()
 
     async def process_incoming() -> None:
-        # FastAPI já devolveu 200; sleep aqui não segura o webhook nem a thread.
-        await asyncio.sleep(_HUMAN_TYPING_DELAY_SECONDS)
         await chat.handle_incoming(payload)
 
     background_tasks.add_task(process_incoming)
-    logger.info(
-        "Webhook Chatwoot: conversa %s enfileirada (pausa humana %ss no worker)",
-        payload.conversation.id if payload.conversation else "?",
-        _HUMAN_TYPING_DELAY_SECONDS,
-    )
+    logger.info("Webhook Chatwoot: conversa %s enfileirada (pacing no envio)", conv_id)
     return Response(status_code=200, content="OK", media_type="text/plain")

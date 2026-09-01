@@ -4,6 +4,7 @@ import httpx
 
 from app.config import Settings
 from app.models.whatsapp import IncomingMessage, WebhookPayload
+from app.services.reply_guard import get_reply_guard
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,8 @@ class WhatsAppService:
             return False
 
         recipient = normalize_brazil_whatsapp_number(to_phone)
+        guard = get_reply_guard()
+        await guard.pace(recipient)
 
         headers = {
             "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
@@ -102,6 +105,7 @@ class WhatsAppService:
                     response.text[:500],
                 )
                 return False
+        guard.remember_outbound(recipient, text)
         return True
 
     async def send_image_message(self, to: str, image_url: str) -> bool:
@@ -115,6 +119,8 @@ class WhatsAppService:
             return False
 
         recipient = normalize_brazil_whatsapp_number(to)
+        guard = get_reply_guard()
+        await guard.pace(recipient)
 
         headers = {
             "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
@@ -143,6 +149,7 @@ class WhatsAppService:
                     response.text[:500],
                 )
                 return False
+        guard.remember_outbound(recipient, "__media__")
         return True
 
     async def mark_message_read(self, message_id: str) -> None:
@@ -164,3 +171,4 @@ class WhatsAppService:
         }
         async with httpx.AsyncClient(timeout=15.0) as client:
             await client.post(url, headers=headers, json=body)
+
