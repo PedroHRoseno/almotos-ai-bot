@@ -3,6 +3,7 @@ import logging
 from app.config import Settings
 from app.models.whatsapp import IncomingMessage
 from app.services.almotos_ai_client import AlmotosAiClient
+from app.services.whatsapp_format import format_whatsapp_reply, merge_image_urls
 from app.services.whatsapp_service import WhatsAppService
 
 logger = logging.getLogger(__name__)
@@ -33,8 +34,8 @@ class ChatService:
             await self._whatsapp.mark_message_read(message.message_id)
             result = await self._almotos_ai.complete(thread_id=phone, text=message.text)
 
-            text = result.get("text") or ""
-            images = result.get("images") or []
+            text, extracted = format_whatsapp_reply(result.get("text") or "")
+            images = merge_image_urls(result.get("images") or [], extracted)
             text_sent = False
             if text:
                 text_sent = await self._whatsapp.send_text_message(phone, text)

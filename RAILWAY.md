@@ -17,6 +17,9 @@
 | `CHATWOOT_BASE_URL` | Sim | URL do Chatwoot, sem barra no fim |
 | `CHATWOOT_API_TOKEN` | Sim | `api_access_token` do AgentBot |
 | `CHATWOOT_ACCOUNT_ID` | Não | Padrão: `1` |
+| `EVOLUTION_API_URL` | Sim (fotos) | URL da Evolution API, sem barra no fim |
+| `EVOLUTION_API_KEY` | Sim (fotos) | Header `apikey` da instância |
+| `EVOLUTION_INSTANCE` | Sim (fotos) | Nome da instância WhatsApp |
 | `WHATSAPP_VERIFY_TOKEN` | Transição | Token de verificação do webhook Meta (legado) |
 | `WHATSAPP_ACCESS_TOKEN` | Transição | Token da Meta Cloud API (legado) |
 | `WHATSAPP_PHONE_NUMBER_ID` | Transição | ID do número WhatsApp Business (legado) |
@@ -32,6 +35,8 @@
 - **Generate Domain** → `https://seu-bot.up.railway.app`
 - URL do AgentBot: `https://seu-bot.up.railway.app/webhook/chatwoot`
 - No Chatwoot: Settings → Agent Bots → webhook URL + token (`CHATWOOT_API_TOKEN`)
+
+Webhook Evolution (opcional, se a instância apontar direto para o bot): `https://seu-bot.up.railway.app/webhook/evolution`. Não use os dois inbound ao mesmo tempo na mesma instância — a resposta duplicaria.
 
 Webhook Meta legado (transição): `https://seu-bot.up.railway.app/webhook`
 

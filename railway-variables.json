@@ -9,5 +9,8 @@
   "ALMOTOS_AI_URL": "https://almotos-ai-production.up.railway.app",
   "CHATWOOT_BASE_URL": "https://chatwoot-production-d174.up.railway.app",
   "CHATWOOT_API_TOKEN": "COLOQUE_O_API_ACCESS_TOKEN_DO_AGENT_BOT",
-  "CHATWOOT_ACCOUNT_ID": "1"
+  "CHATWOOT_ACCOUNT_ID": "1",
+  "EVOLUTION_API_URL": "https://evolution.example.com",
+  "EVOLUTION_API_KEY": "COLOQUE_A_APIKEY_DA_EVOLUTION",
+  "EVOLUTION_INSTANCE": "nome_da_instancia"
 }

@@ -84,7 +84,7 @@ class WhatsAppService:
             "recipient_type": "individual",
             "to": recipient,
             "type": "text",
-            "text": {"preview_url": False, "body": text[:4096]},
+            "text": {"preview_url": True, "body": text[:4096]},
         }
 
         async with httpx.AsyncClient(timeout=30.0) as client:

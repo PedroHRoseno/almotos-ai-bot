@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     chatwoot_api_token: str = ""
     chatwoot_account_id: int = 1
 
+    evolution_api_url: str = ""
+    evolution_api_key: str = ""
+    evolution_instance: str = ""
+
     @property
     def whatsapp_graph_url(self) -> str:
         return (

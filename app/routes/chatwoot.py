@@ -9,6 +9,7 @@ from app.models.chatwoot import ChatwootWebhookPayload
 from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chatwoot_chat_service import ChatwootChatService
 from app.services.chatwoot_client import ChatwootClient
+from app.services.evolution_client import EvolutionClient
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,7 @@ def _get_chatwoot_chat_service() -> ChatwootChatService:
         settings=settings,
         chatwoot=ChatwootClient(settings),
         almotos_ai=AlmotosAiClient(settings),
+        evolution=EvolutionClient(settings),
     )
 
 
@@ -47,6 +49,13 @@ async def receive_chatwoot_webhook(
             "Chatwoot ignorado event=%s message_type=%s",
             payload.event,
             payload.message_type,
+        )
+        return Response(status_code=200, content="OK", media_type="text/plain")
+
+    if payload.attachments and not (payload.content or "").strip():
+        logger.info(
+            "Chatwoot evento de mídia sem legenda conversation=%s — IA não processa",
+            payload.conversation.id if payload.conversation else "?",
         )
         return Response(status_code=200, content="OK", media_type="text/plain")
 
