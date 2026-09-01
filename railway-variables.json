@@ -12,5 +12,6 @@
   "CHATWOOT_ACCOUNT_ID": "1",
   "EVOLUTION_API_URL": "https://evolution.example.com",
   "EVOLUTION_API_KEY": "COLOQUE_A_APIKEY_DA_EVOLUTION",
-  "EVOLUTION_INSTANCE": "nome_da_instancia"
+  "EVOLUTION_INSTANCE": "nome_da_instancia",
+  "EVOLUTION_WEBHOOK_AUTH_REQUIRED": "false"
 }

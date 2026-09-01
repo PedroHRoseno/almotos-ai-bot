@@ -18,8 +18,10 @@
 | `CHATWOOT_API_TOKEN` | Sim | `api_access_token` do AgentBot |
 | `CHATWOOT_ACCOUNT_ID` | Não | Padrão: `1` |
 | `EVOLUTION_API_URL` | Sim (fotos) | URL da Evolution API, sem barra no fim |
-| `EVOLUTION_API_KEY` | Sim (fotos) | Header `apikey` da instância |
+| `EVOLUTION_API_KEY` | Sim (fotos) | Header `apikey` outbound (global ou instância) |
 | `EVOLUTION_INSTANCE` | Sim (fotos) | Nome da instância WhatsApp |
+| `EVOLUTION_WEBHOOK_SECRET` | Não | Token extra aceito no webhook (token da instância, se ≠ da global) |
+| `EVOLUTION_WEBHOOK_AUTH_REQUIRED` | Não | `true` = 401 se a chave não bater. Padrão `false` (loga e processa) |
 | `WHATSAPP_VERIFY_TOKEN` | Transição | Token de verificação do webhook Meta (legado) |
 | `WHATSAPP_ACCESS_TOKEN` | Transição | Token da Meta Cloud API (legado) |
 | `WHATSAPP_PHONE_NUMBER_ID` | Transição | ID do número WhatsApp Business (legado) |

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 _TEXT_TYPES = frozenset(
     {
@@ -161,7 +161,10 @@ class EvolutionWebhookPayload(BaseModel):
     instance: str | None = None
     data: Any = None
     sender: str | None = None
-    apikey: str | None = None
+    apikey: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("apikey", "apiKey", "api_key"),
+    )
 
     def is_upsert(self) -> bool:
         if not self.event:

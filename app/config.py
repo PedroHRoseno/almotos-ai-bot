@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     evolution_api_url: str = ""
     evolution_api_key: str = ""
     evolution_instance: str = ""
+    # Token extra aceito no webhook inbound (costuma ser o token da instância,
+    # diferente da AUTHENTICATION_API_KEY global usada em EVOLUTION_API_KEY).
+    evolution_webhook_secret: str = ""
+    # false (padrão): loga mismatch e processa — necessário para e2e enquanto a
+    # Evolution manda instance token no body e global key no header. true = 401.
+    evolution_webhook_auth_required: bool = False
 
     @property
     def whatsapp_graph_url(self) -> str:
