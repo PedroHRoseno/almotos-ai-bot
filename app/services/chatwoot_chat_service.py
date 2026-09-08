@@ -27,14 +27,30 @@ _HANDOFF_PATTERN = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+_PRICE_QUESTION = re.compile(
+    r"(qual\s+(?:e\s+|é\s+|o\s+)?pre[cç]o|"
+    r"quanto\s+(?:custa|é|e|fica|sai)|"
+    r"pre[cç]o\s+(?:dela|dele|disso|dessa|desse)|"
+    r"(?:me\s+)?fala(?:r)?\s+o\s+pre[cç]o|"
+    r"valor\s+(?:dela|dele|disso))",
+    re.IGNORECASE,
+)
+_NEGOTIATION_PATTERN = re.compile(
+    r"\b("
+    r"desconto|parcela|financi|negoci|"
+    r"entrada|à\s*vista|a\s*vista|"
+    r"visitar|loja"
+    r")\b",
+    re.IGNORECASE,
+)
 
 
 class ChatwootChatService:
-    """Cola webhook Chatwoot → orquestrador (`/v1/chat`) → Chatwoot (+ fotos Evolution).
+    """Cola webhook Chatwoot → orquestrador (`/v1/chat`) → Chatwoot.
 
-    Texto sai como outgoing no Chatwoot (a caixa entrega no WhatsApp). Não usamos
-    Evolution sendText neste caminho — isso ecoava no webhook e gerava loop.
-    Fotos: `/message/sendMedia`, só URLs distintas do cadastro.
+    Texto e fotos saem como outgoing na caixa (a caixa entrega no WhatsApp).
+    Fotos: multipart `attachments[]` com a URL pública do catálogo. Evolution
+    só entra como fallback de mídia e para presença/leitura.
     """
 
     def __init__(
@@ -81,23 +97,11 @@ class ChatwootChatService:
             result = await self._almotos_ai.complete(thread_id=thread_id, text=user_text)
             text, extracted = format_whatsapp_reply(result.get("text") or "")
             images = unique_media_urls((result.get("images") or []) + extracted)
-            handoff = bool(result.get("handoff")) or self._wants_human(user_text)
+            handoff = self._should_handoff(user_text, bool(result.get("handoff")))
 
-            text_sent = False
-            if text:
-                extra = typing_seconds(text)
-                if number and self._evolution.configured():
-                    await self._evolution.send_presence(
-                        number, delay_ms=int(extra * 1000)
-                    )
-                text_sent = await self._chatwoot.send_message(
-                    conversation_id,
-                    text,
-                    whatsapp_number=number,
-                    extra_seconds=extra,
-                )
-
-            photos_sent = await self._send_photos(payload, images)
+            text_sent, photos_sent = await self._deliver(
+                conversation_id, number, text, images
+            )
             if not text_sent and not photos_sent:
                 logger.error("Resposta gerada mas não enviada na conversa %s", conversation_id)
                 await self._chatwoot.send_message(
@@ -116,30 +120,85 @@ class ChatwootChatService:
                 conversation_id, _FALLBACK_REPLY, whatsapp_number=number
             )
 
-    async def _send_photos(self, payload: ChatwootWebhookPayload, images: list[str]) -> int:
+    async def _deliver(
+        self,
+        conversation_id: int,
+        number: str | None,
+        text: str,
+        images: list[str],
+    ) -> tuple[bool, int]:
         photos = unique_media_urls(images)
         if not photos:
-            return 0
-        number = payload.whatsapp_number()
-        if not number:
-            logger.warning(
-                "Fotos ignoradas: remoteJid/telefone ausente na conversa %s",
-                payload.conversation.id if payload.conversation else "?",
+            if not text:
+                return False, 0
+            extra = typing_seconds(text)
+            if number and self._evolution.configured():
+                await self._evolution.send_presence(number, delay_ms=int(extra * 1000))
+            sent = await self._chatwoot.send_message(
+                conversation_id,
+                text,
+                whatsapp_number=number,
+                extra_seconds=extra,
             )
-            return 0
-        if not self._evolution.configured():
-            logger.warning(
-                "Fotos ignoradas: Evolution API não configurada (conversation=%s)",
-                payload.conversation.id if payload.conversation else "?",
-            )
-            return 0
+            return sent, 0
 
-        sent = 0
-        for image_url in photos:
-            if await self._evolution.send_media(number, image_url):
-                sent += 1
-        return sent
+        text_sent = False
+        photos_sent = 0
+        for index, image_url in enumerate(photos):
+            caption = text if index == 0 else ""
+            extra = typing_seconds(caption, kind="media")
+            if number and self._evolution.configured():
+                await self._evolution.send_presence(number, delay_ms=int(extra * 1000))
+            ok = await self._chatwoot.send_attachment(
+                conversation_id,
+                image_url,
+                caption=caption,
+                whatsapp_number=number,
+                extra_seconds=extra,
+            )
+            if not ok:
+                if caption and not text_sent:
+                    text_sent = await self._chatwoot.send_message(
+                        conversation_id,
+                        caption,
+                        whatsapp_number=number,
+                    )
+                if number and self._evolution.configured():
+                    logger.warning(
+                        "Chatwoot attachment falhou, tentando Evolution sendMedia conversation=%s",
+                        conversation_id,
+                    )
+                    ok = await self._evolution.send_media(number, image_url, caption=caption)
+                else:
+                    logger.warning(
+                        "Foto não enviada: Chatwoot attachment falhou e Evolution indisponível "
+                        "(conversation=%s url=%s)",
+                        conversation_id,
+                        image_url[:180],
+                    )
+            elif caption:
+                text_sent = True
+            if ok:
+                photos_sent += 1
+        return text_sent, photos_sent
+
+    def _should_handoff(self, user_text: str, model_handoff: bool) -> bool:
+        if self._wants_human(user_text):
+            return True
+        if model_handoff and self._is_listed_price_question(user_text):
+            logger.info(
+                "Handoff ignorado: cliente só perguntou o preço cadastrado"
+            )
+            return False
+        return model_handoff
 
     @staticmethod
     def _wants_human(text: str) -> bool:
         return bool(_HANDOFF_PATTERN.search(text or ""))
+
+    @staticmethod
+    def _is_listed_price_question(text: str) -> bool:
+        raw = text or ""
+        if not _PRICE_QUESTION.search(raw):
+            return False
+        return not _NEGOTIATION_PATTERN.search(raw) and not _HANDOFF_PATTERN.search(raw)
