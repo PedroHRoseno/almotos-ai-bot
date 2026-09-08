@@ -1,14 +1,12 @@
 import asyncio
 import logging
-import random
 import re
 
 from app.config import Settings
 from app.models.chatwoot import ChatwootWebhookPayload
 from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chatwoot_client import ChatwootClient
-from app.services.evolution_client import EvolutionClient
-from app.services.reply_guard import typing_seconds
+from app.services.message_buffer import get_message_buffer
 from app.services.whatsapp_format import format_whatsapp_reply, unique_media_urls
 
 logger = logging.getLogger(__name__)
@@ -48,9 +46,8 @@ _NEGOTIATION_PATTERN = re.compile(
 class ChatwootChatService:
     """Cola webhook Chatwoot → orquestrador (`/v1/chat`) → Chatwoot.
 
-    Texto e fotos saem como outgoing na caixa (a caixa entrega no WhatsApp).
-    Fotos: multipart `attachments[]` com a URL pública do catálogo. Evolution
-    só entra como fallback de mídia e para presença/leitura.
+    Texto e fotos saem como outgoing na caixa (Meta Cloud API). Sem pacing
+    Evolution: a resposta segue assim que o debounce libera o bloco concatenado.
     """
 
     def __init__(
@@ -58,14 +55,31 @@ class ChatwootChatService:
         settings: Settings,
         chatwoot: ChatwootClient,
         almotos_ai: AlmotosAiClient,
-        evolution: EvolutionClient | None = None,
     ) -> None:
         self._settings = settings
         self._chatwoot = chatwoot
         self._almotos_ai = almotos_ai
-        self._evolution = evolution or EvolutionClient(settings)
 
-    async def handle_incoming(self, payload: ChatwootWebhookPayload) -> None:
+    async def flush_after_debounce(self, conversation_id: int, generation: int) -> None:
+        window = self._settings.chatwoot_debounce_seconds
+        await asyncio.sleep(window)
+        remaining = await get_message_buffer().seconds_until_idle(conversation_id, generation)
+        if remaining is None:
+            return
+        if remaining > 0:
+            await asyncio.sleep(remaining)
+        flushed = await get_message_buffer().take_if_idle(conversation_id, generation)
+        if flushed is None:
+            return
+        text, payload = flushed
+        await self.handle_incoming(payload, text=text)
+
+    async def handle_incoming(
+        self,
+        payload: ChatwootWebhookPayload,
+        *,
+        text: str | None = None,
+    ) -> None:
         if payload.conversation is None:
             return
         if payload.is_with_human():
@@ -77,7 +91,9 @@ class ChatwootChatService:
             return
 
         conversation_id = payload.conversation.id
-        user_text = (payload.content or "").strip()
+        user_text = (text if text is not None else payload.content or "").strip()
+        if not user_text:
+            return
         sender_name = (payload.sender.name if payload.sender else None) or "contato"
         number = payload.whatsapp_number()
         thread_id = f"chatwoot:{conversation_id}"
@@ -90,17 +106,13 @@ class ChatwootChatService:
         )
 
         try:
-            await asyncio.sleep(random.uniform(1.1, 3.0))
-            if number and self._evolution.configured():
-                await self._evolution.signal_reading(number, payload.whatsapp_message_id())
-
             result = await self._almotos_ai.complete(thread_id=thread_id, text=user_text)
-            text, extracted = format_whatsapp_reply(result.get("text") or "")
+            reply, extracted = format_whatsapp_reply(result.get("text") or "")
             images = unique_media_urls((result.get("images") or []) + extracted)
             handoff = self._should_handoff(user_text, bool(result.get("handoff")))
 
             text_sent, photos_sent = await self._deliver(
-                conversation_id, number, text, images
+                conversation_id, number, reply, images
             )
             if not text_sent and not photos_sent:
                 logger.error("Resposta gerada mas não enviada na conversa %s", conversation_id)
@@ -131,14 +143,10 @@ class ChatwootChatService:
         if not photos:
             if not text:
                 return False, 0
-            extra = typing_seconds(text)
-            if number and self._evolution.configured():
-                await self._evolution.send_presence(number, delay_ms=int(extra * 1000))
             sent = await self._chatwoot.send_message(
                 conversation_id,
                 text,
                 whatsapp_number=number,
-                extra_seconds=extra,
             )
             return sent, 0
 
@@ -146,15 +154,11 @@ class ChatwootChatService:
         photos_sent = 0
         for index, image_url in enumerate(photos):
             caption = text if index == 0 else ""
-            extra = typing_seconds(caption, kind="media")
-            if number and self._evolution.configured():
-                await self._evolution.send_presence(number, delay_ms=int(extra * 1000))
             ok = await self._chatwoot.send_attachment(
                 conversation_id,
                 image_url,
                 caption=caption,
                 whatsapp_number=number,
-                extra_seconds=extra,
             )
             if not ok:
                 if caption and not text_sent:
@@ -163,19 +167,11 @@ class ChatwootChatService:
                         caption,
                         whatsapp_number=number,
                     )
-                if number and self._evolution.configured():
-                    logger.warning(
-                        "Chatwoot attachment falhou, tentando Evolution sendMedia conversation=%s",
-                        conversation_id,
-                    )
-                    ok = await self._evolution.send_media(number, image_url, caption=caption)
-                else:
-                    logger.warning(
-                        "Foto não enviada: Chatwoot attachment falhou e Evolution indisponível "
-                        "(conversation=%s url=%s)",
-                        conversation_id,
-                        image_url[:180],
-                    )
+                logger.warning(
+                    "Foto não enviada via Chatwoot attachment (conversation=%s url=%s)",
+                    conversation_id,
+                    image_url[:180],
+                )
             elif caption:
                 text_sent = True
             if ok:

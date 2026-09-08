@@ -182,5 +182,5 @@ async def receive_evolution_webhook(
             await chat.handle_incoming(msg)
 
     background_tasks.add_task(process_incoming)
-    logger.info("Webhook Evolution: %s mensagem(ns) enfileirada(s) (pacing no envio)", len(accepted))
+    logger.info("Webhook Evolution: %s mensagem(ns) enfileirada(s)", len(accepted))
     return Response(status_code=200, content="OK", media_type="text/plain")

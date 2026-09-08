@@ -8,7 +8,7 @@ from app.models.chatwoot import ChatwootWebhookPayload
 from app.services.almotos_ai_client import AlmotosAiClient
 from app.services.chatwoot_chat_service import ChatwootChatService
 from app.services.chatwoot_client import ChatwootClient
-from app.services.evolution_client import EvolutionClient
+from app.services.message_buffer import get_message_buffer
 from app.services.reply_guard import contact_key, get_reply_guard, shared_fingerprints
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,6 @@ def _get_chatwoot_chat_service() -> ChatwootChatService:
         settings=settings,
         chatwoot=ChatwootClient(settings),
         almotos_ai=AlmotosAiClient(settings),
-        evolution=EvolutionClient(settings),
     )
 
 
@@ -68,7 +67,10 @@ async def receive_chatwoot_webhook(
 
     number = payload.whatsapp_number()
     conv_id = payload.conversation.id if payload.conversation else None
-    key = contact_key(number) or (f"cw:{conv_id}" if conv_id else "cw:unknown")
+    if conv_id is None:
+        return Response(status_code=200, content="OK", media_type="text/plain")
+
+    key = contact_key(number) or f"cw:{conv_id}"
     fps = shared_fingerprints(
         contact_key=key,
         text=payload.content or "",
@@ -82,11 +84,13 @@ async def receive_chatwoot_webhook(
     if not claimed:
         return Response(status_code=200, content="OK", media_type="text/plain")
 
+    generation = await get_message_buffer().push(conv_id, payload.content or "", payload)
     chat = _get_chatwoot_chat_service()
-
-    async def process_incoming() -> None:
-        await chat.handle_incoming(payload)
-
-    background_tasks.add_task(process_incoming)
-    logger.info("Webhook Chatwoot: conversa %s enfileirada (pacing no envio)", conv_id)
+    background_tasks.add_task(chat.flush_after_debounce, conv_id, generation)
+    logger.info(
+        "Webhook Chatwoot: conversa %s no buffer gen=%s (debounce %.0fs)",
+        conv_id,
+        generation,
+        get_settings().chatwoot_debounce_seconds,
+    )
     return Response(status_code=200, content="OK", media_type="text/plain")

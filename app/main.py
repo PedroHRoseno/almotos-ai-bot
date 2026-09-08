@@ -34,16 +34,12 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning(
             "CHATWOOT_BASE_URL/CHATWOOT_API_TOKEN não configurados — POST /webhook/chatwoot não envia respostas"
         )
-    if not settings.evolution_api_url or not settings.evolution_api_key or not settings.evolution_instance:
-        logging.getLogger(__name__).warning(
-            "Evolution API não configurada — fotos não saem por /message/sendMedia"
-        )
     yield
 
 
 app = FastAPI(
     title="AlMotos AI Bot",
-    description="Adapter Chatwoot/Evolution (WhatsApp) do agent runtime almotos-ai",
+    description="Adapter Chatwoot (WhatsApp / Meta Cloud API) do agent runtime almotos-ai",
     version="1.3.0",
     lifespan=lifespan,
 )

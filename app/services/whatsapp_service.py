@@ -76,7 +76,6 @@ class WhatsAppService:
 
         recipient = normalize_brazil_whatsapp_number(to_phone)
         guard = get_reply_guard()
-        await guard.pace(recipient)
 
         headers = {
             "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
@@ -120,7 +119,6 @@ class WhatsAppService:
 
         recipient = normalize_brazil_whatsapp_number(to)
         guard = get_reply_guard()
-        await guard.pace(recipient)
 
         headers = {
             "Authorization": f"Bearer {self._settings.whatsapp_access_token}",

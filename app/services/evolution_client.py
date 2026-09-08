@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 import httpx
 
 from app.config import Settings
-from app.services.reply_guard import get_reply_guard, typing_delay_ms
+from app.services.reply_guard import get_reply_guard
 from app.services.whatsapp_service import normalize_brazil_whatsapp_number
 
 logger = logging.getLogger(__name__)
@@ -57,53 +57,7 @@ class EvolutionClient:
     def _number(self, to: str) -> str:
         return normalize_brazil_whatsapp_number(to)
 
-    def _jid(self, to: str) -> str:
-        number = self._number(to)
-        if "@" in number:
-            return number
-        return f"{number}@s.whatsapp.net"
-
-    async def mark_as_read(self, to: str, message_id: str | None = None) -> None:
-        """Confirma leitura — humano lê antes de responder. Falha é ignorada."""
-        if not self.configured() or not message_id:
-            return
-        payload = {
-            "readMessages": [
-                {
-                    "remoteJid": self._jid(to),
-                    "fromMe": False,
-                    "id": str(message_id),
-                }
-            ]
-        }
-        await self._post("/chat/markMessageAsRead", payload, "markRead", timeout=12.0, quiet=True)
-
-    async def send_presence(self, to: str, *, delay_ms: int, presence: str = "composing") -> None:
-        """Mostra 'digitando…' no WhatsApp. Não deve derrubar o envio da mensagem."""
-        if not self.configured() or delay_ms <= 0:
-            return
-        number = self._number(to)
-        delay = max(800, min(int(delay_ms), 16000))
-        payload: dict[str, object] = {
-            "number": number,
-            "delay": delay,
-            "presence": presence,
-            "options": {
-                "delay": delay,
-                "presence": presence,
-                "number": number,
-            },
-        }
-        await self._post("/chat/sendPresence", payload, "sendPresence", timeout=12.0, quiet=True)
-
-    async def signal_reading(self, to: str, message_id: str | None = None) -> None:
-        """Lê a mensagem e começa a 'digitar' enquanto a IA pensa."""
-        if not self.configured() or not to:
-            return
-        await self.mark_as_read(to, message_id)
-        await self.send_presence(to, delay_ms=typing_delay_ms("…", kind="text"))
-
-    async def send_text(self, to: str, text: str, *, delay_ms: int | None = None) -> bool:
+    async def send_text(self, to: str, text: str) -> bool:
         if not self.configured():
             logger.error(
                 "Evolution API não configurada "
@@ -115,17 +69,12 @@ class EvolutionClient:
             return False
 
         number = self._number(to)
-        typing_ms = delay_ms if delay_ms is not None else typing_delay_ms(body_text)
-        await self.send_presence(number, delay_ms=typing_ms)
         guard = get_reply_guard()
-        await guard.pace(number, extra_seconds=typing_ms / 1000.0, kind="text")
 
         payload: dict[str, object] = {
             "number": number,
             "text": body_text[:4096],
             "linkPreview": False,
-            "presence": "composing",
-            "delay": min(max(typing_ms // 4, 400), 2500),
         }
         ok = await self._post("/message/sendText", payload, "sendText")
         if ok:
@@ -138,7 +87,6 @@ class EvolutionClient:
         media_url: str,
         *,
         caption: str = "",
-        delay_ms: int | None = None,
     ) -> bool:
         if not self.configured():
             logger.error(
@@ -152,10 +100,7 @@ class EvolutionClient:
 
         number = self._number(to)
         caption_text = (caption or "").strip()
-        typing_ms = delay_ms if delay_ms is not None else typing_delay_ms(caption_text, kind="media")
-        await self.send_presence(number, delay_ms=typing_ms)
         guard = get_reply_guard()
-        await guard.pace(number, extra_seconds=typing_ms / 1000.0, kind="media")
 
         payload: dict[str, object] = {
             "number": number,
@@ -163,8 +108,6 @@ class EvolutionClient:
             "mimetype": _guess_mimetype(link),
             "media": link,
             "fileName": _guess_filename(link),
-            "presence": "composing",
-            "delay": min(max(typing_ms // 3, 600), 2800),
         }
         if caption_text:
             payload["caption"] = caption_text[:1024]

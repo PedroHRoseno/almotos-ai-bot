@@ -17,13 +17,12 @@
 | `CHATWOOT_BASE_URL` | Sim | URL do Chatwoot, sem barra no fim |
 | `CHATWOOT_API_TOKEN` | Sim | `api_access_token` do AgentBot |
 | `CHATWOOT_ACCOUNT_ID` | Não | Padrão: `1` |
-| `EVOLUTION_API_URL` | Sim (fotos) | URL da Evolution API, sem barra no fim |
-| `EVOLUTION_API_KEY` | Sim (fotos) | Header `apikey` outbound (global ou instância) |
-| `EVOLUTION_INSTANCE` | Sim (fotos) | Nome da instância WhatsApp |
+| `CHATWOOT_DEBOUNCE_SECONDS` | Não | Janela para juntar mensagens rápidas (padrão `4`) |
+| `EVOLUTION_API_URL` | Não | Legado. Inbound é ignorado se o Chatwoot estiver configurado |
+| `EVOLUTION_API_KEY` | Não | Header `apikey` outbound (global ou instância) |
+| `EVOLUTION_INSTANCE` | Não | Nome da instância WhatsApp |
 | `EVOLUTION_WEBHOOK_SECRET` | Não | Token extra aceito no webhook (token da instância, se ≠ da global) |
 | `EVOLUTION_WEBHOOK_AUTH_REQUIRED` | Não | `true` = 401 se a chave não bater. Padrão `false` (loga e processa) |
-| `WHATSAPP_THINK_SECONDS` | Não | Pausa mínima até a 1ª resposta (padrão `6`, também em erro) |
-| `WHATSAPP_MIN_REPLY_SECONDS` | Não | Intervalo mínimo entre envios ao mesmo contato (padrão `8`) |
 | `WHATSAPP_VERIFY_TOKEN` | Transição | Token de verificação do webhook Meta (legado) |
 | `WHATSAPP_ACCESS_TOKEN` | Transição | Token da Meta Cloud API (legado) |
 | `WHATSAPP_PHONE_NUMBER_ID` | Transição | ID do número WhatsApp Business (legado) |
