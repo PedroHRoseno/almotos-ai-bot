@@ -41,6 +41,15 @@ _NEGOTIATION_PATTERN = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+_FINANCING_PATTERN = re.compile(
+    r"\b(financi|simula(?:r|ção|cao)?|parcela)\b",
+    re.IGNORECASE,
+)
+_CPF_PATTERN = re.compile(r"\d{3}\.?\d{3}\.?\d{3}-?\d{2}")
+_IMMEDIATE_HANDOFF_PATTERN = re.compile(
+    r"\b(desconto|visitar|loja)\b",
+    re.IGNORECASE,
+)
 
 
 class ChatwootChatService:
@@ -124,7 +133,7 @@ class ChatwootChatService:
                 await self._chatwoot.handoff_to_human(conversation_id)
                 await self._chatwoot.send_private_note(
                     conversation_id,
-                    "Handoff: o bot passou o atendimento para um humano nesta mesma conversa.",
+                    self._handoff_private_note(result.get("reason")),
                 )
         except Exception:
             logger.exception("Erro ao processar conversa Chatwoot %s", conversation_id)
@@ -186,7 +195,31 @@ class ChatwootChatService:
                 "Handoff ignorado: cliente só perguntou o preço cadastrado"
             )
             return False
+        if model_handoff and self._is_premature_financing_handoff(user_text):
+            logger.info(
+                "Handoff ignorado: financiamento ainda sem os dados de crédito"
+            )
+            return False
         return model_handoff
+
+    @staticmethod
+    def _handoff_private_note(reason: object) -> str:
+        header = "Handoff: o bot passou o atendimento para um humano nesta mesma conversa."
+        detail = reason.strip() if isinstance(reason, str) else ""
+        if not detail:
+            return header
+        return f"{header}\n\nMotivo / dados coletados:\n{detail}"
+
+    @staticmethod
+    def _is_premature_financing_handoff(text: str) -> bool:
+        raw = text or ""
+        if not _FINANCING_PATTERN.search(raw):
+            return False
+        if _CPF_PATTERN.search(raw):
+            return False
+        if _HANDOFF_PATTERN.search(raw) or _IMMEDIATE_HANDOFF_PATTERN.search(raw):
+            return False
+        return True
 
     @staticmethod
     def _wants_human(text: str) -> bool:

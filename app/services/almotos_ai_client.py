@@ -35,15 +35,17 @@ class AlmotosAiClient:
                 response.raise_for_status()
             data = response.json()
             if not isinstance(data, dict):
-                return {"text": str(data), "images": [], "handoff": False}
+                return {"text": str(data), "images": [], "handoff": False, "reason": ""}
             images = data.get("images") or []
             if not isinstance(images, list):
                 images = []
 
+            reason = data.get("reason")
             return {
                 "text": (data.get("text") or "").strip(),
                 "images": unique_media_urls(
                     [u for u in images if isinstance(u, str) and u.strip()]
                 ),
                 "handoff": bool(data.get("handoff")),
+                "reason": reason.strip() if isinstance(reason, str) else "",
             }
