@@ -6,6 +6,7 @@ from fastapi import FastAPI
 
 from app.config import get_settings
 from app.routes import create_api_router
+from app.scheduler import start_wishlist_scheduler, stop_wishlist_scheduler
 
 load_dotenv()
 
@@ -34,7 +35,13 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning(
             "CHATWOOT_BASE_URL/CHATWOOT_API_TOKEN não configurados — POST /webhook/chatwoot não envia respostas"
         )
+    if not settings.almotos_backend_url:
+        logging.getLogger(__name__).warning(
+            "ALMOTOS_BACKEND_URL não configurada — job da lista de espera não consulta o SoR"
+        )
+    start_wishlist_scheduler(settings)
     yield
+    stop_wishlist_scheduler()
 
 
 app = FastAPI(

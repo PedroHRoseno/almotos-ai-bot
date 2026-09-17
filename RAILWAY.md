@@ -14,6 +14,8 @@
 | Variável | Obrigatória | Descrição |
 |----------|-------------|-----------|
 | `ALMOTOS_AI_URL` | Sim | URL pública do `almotos-ai`, sem barra no fim |
+| `ALMOTOS_BACKEND_URL` | Sim (lista de espera) | URL do SoR (`almotos-backend`), sem barra no fim |
+| `INTERNAL_API_KEY` | Sim (lista de espera) | Mesma chave do backend (`X-Internal-Key`) |
 | `CHATWOOT_BASE_URL` | Sim | URL do Chatwoot, sem barra no fim |
 | `CHATWOOT_API_TOKEN` | Sim | `api_access_token` do AgentBot |
 | `CHATWOOT_ACCOUNT_ID` | Não | Padrão: `1` |
@@ -29,7 +31,7 @@
 | `WHATSAPP_APP_SECRET` | Transição | App Secret Meta; sem isso o POST `/webhook` retorna 403 |
 | `WHATSAPP_API_VERSION` | Não | Padrão: `v21.0` |
 
-**Remover** se ainda existirem: `OPENAI_API_KEY`, `VEHICLES_API_URL`, `VEHICLES_API_TOKEN`. O bot **não** chama LLM nem o SoR (ADR-003).
+**Remover** se ainda existirem: `OPENAI_API_KEY`, `VEHICLES_API_TOKEN`. O bot **não** chama LLM. O job da lista de espera consulta o SoR via REST (`/vehicles/interests` e `/api/public/vehicles`) — sem Postgres neste processo (ADR-001).
 
 `PORT` é injetado pelo Railway.
 

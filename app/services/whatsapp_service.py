@@ -150,6 +150,70 @@ class WhatsAppService:
         guard.remember_outbound(recipient, "__media__")
         return True
 
+    async def send_wishlist_notification(
+        self, phone_number: str, brand: str, model: str
+    ) -> bool:
+        """Dispara o template alerta_moto_disponivel (Meta Cloud API)."""
+        if not self._settings.whatsapp_access_token or not self._settings.whatsapp_phone_number_id:
+            logger.error("WhatsApp não configurado (token ou phone_number_id ausente)")
+            return False
+
+        recipient = normalize_brazil_whatsapp_number(phone_number)
+        url = (
+            f"https://graph.facebook.com/v21.0"
+            f"/{self._settings.whatsapp_phone_number_id}/messages"
+        )
+        payload = {
+            "messaging_product": "whatsapp",
+            "recipient_type": "individual",
+            "to": recipient,
+            "type": "template",
+            "template": {
+                "name": "alerta_moto_disponivel",
+                "language": {"code": "pt_BR"},
+                "components": [
+                    {
+                        "type": "body",
+                        "parameters": [
+                            {"type": "text", "text": (brand or "-")[:1024]},
+                            {"type": "text", "text": (model or "-")[:1024]},
+                            {
+                                "type": "text",
+                                "text": "https://catalogo.almotoscaruaru.com.br/",
+                            },
+                        ],
+                    }
+                ],
+            },
+        }
+        headers = {
+            "Authorization": f"Bearer {self._settings.whatsapp_access_token}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, headers=headers, json=payload)
+            logger.info(
+                "Meta template alerta_moto_disponivel para %s → HTTP %s",
+                recipient,
+                response.status_code,
+            )
+            if response.status_code != 200:
+                logger.error(
+                    "Falha no template alerta_moto_disponivel para %s: HTTP %s %s",
+                    recipient,
+                    response.status_code,
+                    response.text[:500],
+                )
+                return False
+            return True
+        except Exception:
+            logger.exception(
+                "Erro de rede ao enviar alerta_moto_disponivel para %s", recipient
+            )
+            return False
+
     async def mark_message_read(self, message_id: str) -> None:
         if not message_id or not self._settings.whatsapp_access_token:
             return
