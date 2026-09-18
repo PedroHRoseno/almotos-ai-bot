@@ -39,6 +39,11 @@ async def lifespan(app: FastAPI):
         logging.getLogger(__name__).warning(
             "ALMOTOS_BACKEND_URL não configurada — job da lista de espera não consulta o SoR"
         )
+    elif settings.railway_environment and "localhost" in settings.almotos_backend_url:
+        logging.getLogger(__name__).error(
+            "ALMOTOS_BACKEND_URL=%s no Railway. Use https://api.almotoscaruaru.com.br",
+            settings.almotos_backend_url,
+        )
     start_wishlist_scheduler(settings)
     yield
     stop_wishlist_scheduler()

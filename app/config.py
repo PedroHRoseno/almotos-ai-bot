@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     almotos_ai_url: str = "http://localhost:3100"
     almotos_backend_url: str = "http://localhost:8080"
     internal_api_key: str = ""
+    railway_environment: str = ""
 
     chatwoot_base_url: str = ""
     chatwoot_api_token: str = ""
