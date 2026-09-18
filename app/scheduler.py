@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -17,6 +18,7 @@ def start_wishlist_scheduler(settings: Settings) -> AsyncIOScheduler:
     if _scheduler is not None and _scheduler.running:
         return _scheduler
 
+    minutes = max(1, int(settings.wishlist_poll_interval_minutes))
     scheduler = AsyncIOScheduler()
 
     async def _job() -> None:
@@ -29,16 +31,17 @@ def start_wishlist_scheduler(settings: Settings) -> AsyncIOScheduler:
     scheduler.add_job(
         _job,
         "interval",
-        minutes=30,
+        minutes=minutes,
         id="wishlist_poll",
         max_instances=1,
         coalesce=True,
         replace_existing=True,
-        misfire_grace_time=120,
+        misfire_grace_time=max(60, minutes * 60),
+        next_run_time=datetime.now(timezone.utc),
     )
     scheduler.start()
     _scheduler = scheduler
-    logger.info("Scheduler da lista de espera iniciado (a cada 30 min)")
+    logger.info("Scheduler da lista de espera iniciado (a cada %s min; 1ª execução agora)", minutes)
     return scheduler
 
 

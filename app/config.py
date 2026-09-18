@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     evolution_webhook_auth_required: bool = False
     # Janela para juntar mensagens rápidas do mesmo conversation_id antes da IA.
     chatwoot_debounce_seconds: float = 4.0
+    # Polling da lista de espera (template Meta). 1 min para testar em produção.
+    wishlist_poll_interval_minutes: int = 1
 
     @property
     def whatsapp_graph_url(self) -> str:
